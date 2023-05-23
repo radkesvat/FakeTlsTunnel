@@ -1,0 +1,43 @@
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+echo nameserver 8.8.8.8 | sudo tee /etc/resolv.conf
+
+apt-get update -y
+
+REQUIRED_PKG="unzip"
+PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
+echo Checking for $REQUIRED_PKG: $PKG_OK
+if [ "" = "$PKG_OK" ]; then
+  echo "Setting up $REQUIRED_PKG."
+  sudo apt-get --yes install $REQUIRED_PKG
+fi
+
+REQUIRED_PKG="wget"
+PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
+echo Checking for $REQUIRED_PKG: $PKG_OK
+if [ "" = "$PKG_OK" ]; then
+  echo "Setting up $REQUIRED_PKG."
+  sudo apt-get --yes install $REQUIRED_PKG
+fi
+
+
+printf  "\n"
+printf  "\n"
+
+
+echo "downloading FakeTlsTunnel"
+
+printf  "\n"
+
+
+
+wget "https://github.com/Leiren/Npanel/releases/download/v0.2.8alpha/linux-amd64.zip" -O ftt_compressed.zip
+unzip -o ftt_compressed.zip
+sudo chmod +x FTT
+rm ftt_compressed.zip
+
+echo "finished."
+
+printf  "\n"
