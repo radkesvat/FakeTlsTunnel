@@ -10,8 +10,8 @@ type
 
     ServerConnectionPoolContext = object
         listener: AsyncSocket
-        inbound: Connections
-        outbound: Connections
+        # inbound: Connections
+        # outbound: Connections
 
 var context = ServerConnectionPoolContext()
 
@@ -100,7 +100,7 @@ proc processConnection(client_addr: string, client: AsyncSocket) {.async.} =
 
         
             if data == "":
-                if globals.log_conn_destory: echo &"closed  client {client.cid}  <-> remote"
+                if globals.log_conn_destory: echo &"closed client  <-> remote"
                 
                 client.close()
                 remote.close()
@@ -129,7 +129,7 @@ proc processConnection(client_addr: string, client: AsyncSocket) {.async.} =
 
             
             if data == "" :
-                if globals.log_conn_destory: echo &"closed  client <-> remote"
+                if globals.log_conn_destory: echo &"closed client <-> remote"
                 remote.close()
                 client.close()
                 break
