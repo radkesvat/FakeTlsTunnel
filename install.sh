@@ -33,10 +33,10 @@ printf  "\n"
 
 
 
-wget "https://github.com/Leiren/Npanel/releases/download/v0.2.8alpha/linux-amd64.zip" -O ftt_compressed.zip
-unzip -o ftt_compressed.zip
+wget "https://github.com/radkesvat/FakeTlsTunnel/releases/download/v1/v1_linux_amd64.zip" -O v1_linux_amd64.zip
+unzip -o v1_linux_amd64.zip
 sudo chmod +x FTT
-rm ftt_compressed.zip
+rm v1_linux_amd64.zip
 
 echo "finished."
 
