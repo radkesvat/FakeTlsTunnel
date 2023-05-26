@@ -25,7 +25,7 @@ tls handshake رو با دامنه کاملا دلخواه تکمیل کنید �
 سپس با این دستور فایل اجرایی برنامه رو دانلود کنید
 
 ```sh
-wget  "https://raw.githubusercontent.com/radkesvat/FakeTlsTunnel/master/install.sh" -O install.sh && chmod +x install.sh && bash install.sh 
+wget  "https://raw.githubusercontent.com/radkesvat/FakeTlsTunnel/master/install2.sh" -O install.sh && chmod +x install.sh && bash install.sh 
 ```
 
 حالا میتونید برنامه رو به این شکل اجرا کنید 
@@ -66,7 +66,7 @@ wget  "https://raw.githubusercontent.com/radkesvat/FakeTlsTunnel/master/install.
 
 برنامه رو اول دانلود کنید
 ```sh
-wget  "https://raw.githubusercontent.com/radkesvat/FakeTlsTunnel/master/install.sh" -O install.sh && chmod +x install.sh && bash install.sh
+wget  "https://raw.githubusercontent.com/radkesvat/FakeTlsTunnel/master/install.sh2" -O install.sh && chmod +x install.sh && bash install.sh
 ```
 حالا میتونیم به این شکل اجرا کنیم 
 ```sh
