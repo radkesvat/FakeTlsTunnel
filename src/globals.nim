@@ -1,4 +1,4 @@
-import dns_resolve,net,hashes,print,parseopt,strutils
+import dns_resolve,hashes,print,parseopt,strutils,random,net
 import std/sha1
 
 const socket_buffered* = false
@@ -10,22 +10,32 @@ const log_conn_destory* = true
 var trust_time*:uint = 3 #secs
 
 
+const chunk_size*  = 1024-8
+const segment_size_min* = 250
+const segment_size_max* = 1024
+
+# const mux_segment_size* = 1024+8
+const mux_conn_per_client* = 1
+const mux_initial_conn* = 10
+const connection_buf_cap* = 5000
+const mux*:bool = true
 
 type RunMode*{.pure.} = enum 
     tunnel,server
 
-var mode*:RunMode = RunMode.tunnel
 
+
+
+var mode*:RunMode = RunMode.tunnel
 const listen_addr* = "0.0.0.0"
 var listen_port* = -1
-
 var next_route_addr* = ""
 var next_route_port* = -1
-
-
 var final_target_domain* = ""
 var final_target_ip*:string
 const final_target_port* = 443
+
+
 var self_ip*:string
  
 
@@ -36,10 +46,12 @@ var sh1*:uint32
 var sh2*:uint32
 var sh3*:uint8
 
-
+var random_600* = newString(len=600)
 
 proc init*()=
 
+    for i in 0..<random_600.len():
+        random_600[i] = rand(char.low .. char.high).char
 
     var p = initOptParser(longNoVal = @["server","tunnel"])
     while true:
@@ -48,7 +60,6 @@ proc init*()=
         of cmdEnd: break
         of cmdShortOption,cmdLongOption:
             if p.val == "":
-                # echo "Option: ", p.key
                 case p.key:
                     of  "server":
                         mode = RunMode.server
@@ -81,7 +92,6 @@ proc init*()=
                         print trust_time
                  
                    
-                # echo "Option and value: ", p.key, ", ", p.val
         of cmdArgument:
             echo "Argument: ", p.key
 

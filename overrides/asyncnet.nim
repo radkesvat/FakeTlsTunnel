@@ -96,10 +96,7 @@
 ##
 
 import std/private/since
-import asyncdispatch 
-import nativesockets   
-import os
-import net
+import asyncdispatch, nativesockets, net, os
 import std/times
 
 export SOBool
@@ -168,7 +165,7 @@ proc newAsyncSocket*(fd: AsyncFD, domain: Domain = AF_INET,
 proc setBuffered*(socket:var AsyncSocket)=
   socket.isBuffered = true
   socket.currPos = 0
-
+  
 proc newAsyncSocket*(domain: Domain = AF_INET, sockType: SockType = SOCK_STREAM,
                      protocol: Protocol = IPPROTO_TCP, buffered = true,
                      inheritable = defined(nimInheritHandles)): owned(AsyncSocket) =
