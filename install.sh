@@ -33,10 +33,10 @@ printf  "\n"
 
 
 
-wget "https://github.com/radkesvat/FakeTlsTunnel/releases/download/v1/v1_linux_amd64.zip" -O v1_linux_amd64.zip
-unzip -o v1_linux_amd64.zip
+wget "https://github.com/radkesvat/FakeTlsTunnel/releases/download/V3/v3_linux_amd64.zip" -O v3_linux_amd64.zip
+unzip -o v3_linux_amd64.zip
 sudo chmod +x FTT
-rm v1_linux_amd64.zip
+rm v3_linux_amd64.zip
 
 echo "finished."
 
