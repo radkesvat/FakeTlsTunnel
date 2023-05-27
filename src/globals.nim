@@ -1,4 +1,4 @@
-import dns_resolve,hashes,print,parseopt,strutils,random,net
+import dns_resolve, hashes, print, parseopt, strutils, random, net
 import std/sha1
 
 const socket_buffered* = false
@@ -7,10 +7,10 @@ const log_data_len* = false
 const log_conn_create* = true
 const log_conn_destory* = true
 
-var trust_time*:uint = 3 #secs
+var trust_time*: uint = 3 #secs
+var con_pool_size* = 16
 
-
-const chunk_size*  = 1024-8
+const chunk_size* = 1024-8
 const segment_size_min* = 250
 const segment_size_max* = 1024
 
@@ -18,50 +18,48 @@ const segment_size_max* = 1024
 const mux_conn_per_client* = 1
 const mux_initial_conn* = 10
 const connection_buf_cap* = 5000
-const mux*:bool = true
+const mux*: bool = true
 
-type RunMode*{.pure.} = enum 
-    tunnel,server
-
-
+type RunMode*{.pure.} = enum
+    tunnel, server
 
 
-var mode*:RunMode = RunMode.tunnel
+var mode*: RunMode = RunMode.tunnel
 const listen_addr* = "0.0.0.0"
 var listen_port* = -1
 var next_route_addr* = ""
 var next_route_port* = -1
 var final_target_domain* = ""
-var final_target_ip*:string
+var final_target_ip*: string
 const final_target_port* = 443
 
 
-var self_ip*:string
- 
+var self_ip*: string
+
 
 
 var password* = ""
-var password_hash* :string
-var sh1*:uint32
-var sh2*:uint32
-var sh3*:uint8
+var password_hash*: string
+var sh1*: uint32
+var sh2*: uint32
+var sh3*: uint8
 
-var random_600* = newString(len=600)
+var random_600* = newString(len = 600)
 
-proc init*()=
+proc init*() =
 
     for i in 0..<random_600.len():
         random_600[i] = rand(char.low .. char.high).char
 
-    var p = initOptParser(longNoVal = @["server","tunnel"])
+    var p = initOptParser(longNoVal = @["server", "tunnel"])
     while true:
         p.next()
         case p.kind
         of cmdEnd: break
-        of cmdShortOption,cmdLongOption:
+        of cmdShortOption, cmdLongOption:
             if p.val == "":
                 case p.key:
-                    of  "server":
+                    of "server":
                         mode = RunMode.server
                         print mode
                     of "tunnel":
@@ -72,26 +70,29 @@ proc init*()=
                         quit(-1)
             else:
                 case p.key:
-                    of  "lport":
+                    of "lport":
                         listen_port = parseInt(p.val)
                         print listen_port
-                    of  "toip":
+                    of "toip":
                         next_route_addr = (p.val)
                         print next_route_addr
-                    of  "toport":
+                    of "toport":
                         next_route_port = parseInt(p.val)
                         print next_route_port
-                    of  "sni":
+                    of "sni":
                         final_target_domain = (p.val)
                         print final_target_domain
-                    of  "password":
+                    of "password":
                         password = (p.val)
                         print password
-                    of  "trust_time":
+                    of "pool":
+                        con_pool_size = parseInt(p.val).int
+                        print con_pool_size
+                    of "trust_time":
                         trust_time = parseInt(p.val).uint
                         print trust_time
-                 
-                   
+
+
         of cmdArgument:
             echo "Argument: ", p.key
 
@@ -115,7 +116,7 @@ proc init*()=
         echo "specify the password  --password:{something}"
         exit = true
 
-    if exit : quit(-1)
+    if exit: quit(-1)
 
     print "\n"
     final_target_ip = resolveIPv4(final_target_domain)
@@ -124,6 +125,6 @@ proc init*()=
     password_hash = $(secureHash(password))
     sh1 = hash(password_hash).uint32
     sh2 = hash(sh1).uint32
-    sh3 = (hash(sh3) and 0x0D).uint8
-    print password, password_hash, sh1,sh2,sh3
+    sh3 = (1 + (hash(sh3).uint32 mod 8)).uint8
+    print password, password_hash, sh1, sh2, sh3, con_pool_size
     print "\n"
