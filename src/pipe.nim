@@ -5,11 +5,11 @@ const hsize = 8
 
 proc encrypt(data:var string) =
     for i in 0..<data.len():
-        data[i] = chr(rotateRightBits(uint8(data[i]), 7))
+        data[i] = chr(rotateRightBits(uint8(data[i]), globals.sh3))
 
 proc decrypt(data:var string) =
     for i in 0..<data.len():
-        data[i] = chr(rotateLeftBits(uint8(data[i]), 7))
+        data[i] = chr(rotateLeftBits(uint8(data[i]), globals.sh3))
 
 proc muxPack(cid: uint32,data: string): string =
     var datalen = len(data)
@@ -41,13 +41,11 @@ proc muxPack(cid: uint32,data: string): string =
 
     
 proc prepairTrustedSend*(cid: uint32, data: var string) = 
-    if globals.mux:
-        var muxres = muxPack(cid,data)
-        encrypt muxres
-        data = muxres
-    else:
-        quit(-1)
-        encrypt data
+   
+    var muxres = muxPack(cid,data)
+    encrypt muxres
+    data = muxres
+  
 
 proc prepairUnTrustedSend(data: var string) = discard
 
