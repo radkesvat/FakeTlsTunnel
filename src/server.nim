@@ -16,23 +16,21 @@ var context = ServerConnectionPoolContext()
 
 
 
-proc monitorData(data: string): tuple[trust: bool, id: uint32] =
+proc monitorData(data: string): bool =
     try:
-        if len(data) < 12: return (false, 0.uint32)
+        if len(data) < 8: return false
         var sh1_c: uint32
         var sh2_c: uint32
-        var cid: uint32
 
         copyMem(unsafeAddr sh1_c, unsafeAddr data[0], 4)
         copyMem(unsafeAddr sh2_c, unsafeAddr data[4], 4)
-        copyMem(unsafeAddr cid, unsafeAddr data[8], 4)
 
         let chk1 = sh1_c == globals.sh1
         let chk2 = sh2_c == globals.sh2
 
-        return (chk1 and chk2, cid)
+        return chk1 and chk2
     except:
-        return (false, 0.uint32)
+        return false
 
 
 
@@ -40,64 +38,71 @@ proc processConnection(client_a: Connection) {.async.} =
     # var remote: Connection
     var client: Connection = client_a
 
-    proc proccessRemote(remote: Connection) {.async.}
+    proc proccessRemote(remote_arg: Connection) {.async.}
     proc proccessClient() {.async.}
 
-    proc remoteTrusted(): Future[Connection]{.async.} =
-        result = newConnection(address = globals.next_route_addr)
-        result.trusted = TrustStatus.yes
-        await result.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
-        if globals.log_conn_create: echo "connected to ", globals.next_route_addr, ":", $globals.next_route_port
+    proc remoteTrusted(id : uint32): Future[Connection]{.async.} =
+        var new_remote = newConnection(address = globals.next_route_addr)
+        new_remote.trusted = TrustStatus.yes
+        if not context.outbound.connections.hasKey(id):
+            new_remote.id = id
+            context.outbound.register new_remote
+            await new_remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
+            if globals.log_conn_create: echo "connected to ", globals.next_route_addr, ":", $globals.next_route_port
+            return new_remote
+        else:
+            if context.outbound.connections[id].isClosed():
+                context.outbound.close(context.outbound.connections[id])
+                return await remoteTrusted(id)
+            else:
+                return context.outbound.connections[id]
 
     proc remoteUnTrusted(): Future[Connection]{.async.} =
-        result = newConnection(address = globals.final_target_ip)
-        result.trusted = TrustStatus.no
-        await result.socket.connect(globals.final_target_ip, globals.final_target_port.Port)
+        var new_remote = newConnection(address = globals.final_target_ip)
+        new_remote.trusted = TrustStatus.no
+        await new_remote.socket.connect(globals.final_target_ip, globals.final_target_port.Port)
         if globals.log_conn_create: echo "connected to ", globals.final_target_ip, ":", $globals.final_target_port
+        return new_remote
 
 
-
-    proc proccessRemote(remote: Connection) {.async.} =
+    proc proccessRemote(remote_arg: Connection) {.async.} =
+        var remote = remote_arg
         var data = ""
         while not remote.isClosed:
             try:
                 data = await remote.recv(globals.chunk_size)
-                if globals.log_data_len: echo &"{data.len()}bytes from remote"
+                if globals.log_data_len: echo &"[proccessRemote] {data.len()} bytes from remote"
             except:
                 continue
 
 
+            if client.isClosed():
+                try:
+                    client = context.inbound.takeRandom()
+                    asyncCheck proccessClient()
+                except:
+                    if globals.log_conn_destory: echo "[proccessRemote] no mux client left, closing..."
+                    remote.close()
+                    break
+                    
             if data == "":
-                if globals.log_conn_destory: echo &"closed remote"
+                if globals.log_conn_destory: echo &"[proccessRemote] closed remote"
                 if client.isTrusted():
                     context.outbound.close(remote)
                     var data_to_send = ""
                     prepairTrustedSend(remote.id, data_to_send)
-                    await client.sendF data_to_send
-                    if globals.log_conn_destory: echo &"told tunnel to close client {remote.id}"
+                    await client.send(data_to_send)
                 else:
                     remote.close()
                     client.close()
                 break
 
-            # if(client.trusted == TrustStatus.yes):
-            #     for i in 0..<data.len():
-            #         data[i] = rotateRightBits(uint8(data[i]), 4).chr
 
             if client.isTrusted:
-                if client.isClosed():
-                    try:
-                        client = context.inbound.takeRandom()
-                        asyncCheck proccessClient()
-                    except:
-                        if globals.log_conn_destory: echo "no mux client left, close."
-                        remote.close()
-                        break
-
                 try:
                     prepairTrustedSend(remote.id, data)
-                    await client.sendF(data)
-                    if globals.log_data_len: echo &"Sent {data.len()} bytes -> Trusted client"
+                    await client.send(data)
+                    if globals.log_data_len: echo &"[proccessRemote] {data.len()} bytes -> Trusted client {remote.id}"
 
                 except: continue
             else:
@@ -105,21 +110,18 @@ proc processConnection(client_a: Connection) {.async.} =
                     remote.close()
                     break
                 await client.send(data)
-                if globals.log_data_len: echo &"Sent {data.len()} bytes -> UnTrusted client"
+                if globals.log_data_len: echo &"[proccessRemote] Sent {data.len()} bytes -> UnTrusted client"
 
 
-    var remote: Connection
+    var untrusted_remote: Connection
 
     try:
-        remote = await remoteUnTrusted()
-        asyncCheck proccessRemote(remote)
+        untrusted_remote = await remoteUnTrusted()
+        asyncCheck proccessRemote(untrusted_remote)
     except:
-        if globals.log_conn_destory: echo &"closed tunnel <-> this server due to send error"
-        client.close()
-        remote.close()
+        echo &"Warning! proccessRemote root level exception ?!"
+        untrusted_remote.close()
         return
-
-
 
 
 
@@ -129,88 +131,70 @@ proc processConnection(client_a: Connection) {.async.} =
             var data = ""
             try:
                 data = await client.recv(globals.chunk_size+8)
-                if globals.log_data_len: echo &"{data.len()} bytes from client"
+                if globals.log_data_len: echo &"[proccessClient] {data.len()} bytes from client"
 
-
-                # if data.len<1000:
-                #     echo data.repr
-                # if(client.trusted == TrustStatus.yes):
-                #     for i in 0..<data.len():
-                #         data[i] = chr(rotateRightBits(uint8(data[i]), 4))
             except:
                 continue
 
+            if data == "":
+                if client.isTrusted():
+                    if globals.log_conn_destory: echo &"[proccessClient] closed inbound connection"
+                    context.inbound.close(client)
+                else:
+                    if globals.log_conn_destory: echo &"[proccessClient] closed inbound & outbound connection"
+                    untrusted_remote.close()
+                    client.close()
+                break
 
             if client.trusted == TrustStatus.pending:
-                var (trust, cid) = monitorData(data)
+                let trust = monitorData(data)
                 if trust:
                     client.trusted = TrustStatus.yes
                     client.socket.setBuffered()
-                    # context.inbound.register client
+                    context.inbound.register(client)
 
                     print "Fake Handshake Complete !"
-                    remote.close()
-                    remote = await remoteTrusted()
-                    remote.id = 0
-                    context.outbound.register remote
-                    asyncCheck proccessRemote(remote)
+                    untrusted_remote.close()
+                    # remote = await remoteTrusted(0)
+                    # remote.id = 0
+                    # context.outbound.register remote
+                    # asyncCheck proccessRemote(remote)
 
                     continue
                 elif (epochTime().uint - client.creation_time) > globals.trust_time:
-                    echo "gfw fake connection detected !"
+                    echo "[proccessClient] non-client connection detected !  forwarding to real website."
                     client.trusted = TrustStatus.no
 
 
-            if data == "":
-                if remote.isTrusted():
-                    if globals.log_conn_destory: echo &"closed mux connection to tunnel"
-                    context.inbound.close(client)
-                else:
-                    if globals.log_conn_destory: echo &"closed full connection"
 
-                    remote.close()
-                    client.close()
-
-                break
 
 
             try:
                 if client.isTrusted():
-                    if globals.mux:
-                        var (cid, pack) = muxRead(data)
+                    
+                    var (cid, pack) = muxRead(data)
+                    if pack == "":
+                        if context.outbound.connections.hasKey(cid):
+                            context.outbound.close(context.outbound.connections[cid])
+                            if globals.log_data_len: echo &"[proccessClient] closed outbound {cid}"
+                        continue
+                    if cid == 0:
+                        if globals.log_data_len: echo "[proccessClient][Error] cid was 0"
+                        # quit()
+                        continue
+                    if not context.outbound.connections.hasKey(cid):
+                        var new_remote = await remoteTrusted(cid)
+                        asyncCheck proccessRemote(new_remote)
 
-                        if pack == "":
-                            if context.outbound.connections.hasKey(cid):
-                                context.outbound.close(context.outbound.connections[cid])
-                                if globals.log_data_len: echo &"closed this server <-> trusted remote {cid}"
-                            continue
-                        if cid == 0:
-                            if globals.log_data_len: echo "was 0"
-                            quit()
-
-                        if not context.outbound.connections.hasKey(cid):
-                            remote = await remoteTrusted()
-                            remote.id = cid
-                            context.outbound.register(remote)
-                            asyncCheck proccessRemote(remote)
-
-
-                        await context.outbound.connections[cid].send(pack)
-                        if globals.log_data_len: echo &"{pack.len()} bytes -> Trusted remote"
-
-                    else:
-                        if remote.isClosed: continue
-                        normalRead(data)
-                        await remote.send(data)
-                        if globals.log_data_len: echo &"{data.len()}bytes -> remote"
+                    await context.outbound.connections[cid].send(pack)
+                    if globals.log_data_len: echo &"[proccessClient] {pack.len()} bytes -> Trusted remote {cid}"
 
                 else:
-                    if remote.isClosed:
+                    if untrusted_remote.isClosed:
                         client.close()
                         break
-
-                    await remote.send(data)
-                    if globals.log_data_len: echo &"{data.len()}bytes -> remote"
+                    await untrusted_remote.send(data)
+                    if globals.log_data_len: echo &"[proccessClient] {data.len()}bytes -> UnTrusted remote"
 
             except:
                 printEx()
@@ -221,7 +205,6 @@ proc processConnection(client_a: Connection) {.async.} =
 
     try:
         asyncCheck proccessClient()
-        # asyncCheck remoteHasData()
     except:
         echo "[Server] root level exception"
         print getCurrentExceptionMsg()
