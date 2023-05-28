@@ -1,16 +1,18 @@
 
-import overrides/[asyncnet]
-import times,random
-import strformat, tables, json, strutils, sequtils, hashes
-import  asyncdispatch, os, strutils, parseutils, deques, options
+import std/[random,os,asyncdispatch]
 from globals import nil
-import keys,print,tunnel
 import tunnel,server
 
 
+when defined(linux):
+    if not isAdmin():
+        echo "Please run as root."
+        quit(-1)
+    assert 0 == execShellCmd("sudo ufw disable")
+    assert 0 == execShellCmd("sysctl -w fs.file-max=100000")
+
 randomize()
 globals.init()
-
 
 
 if globals.mode == globals.RunMode.tunnel:
