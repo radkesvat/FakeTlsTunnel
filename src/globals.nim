@@ -8,17 +8,10 @@ const log_conn_create* = true
 const log_conn_destory* = true
 
 var trust_time*: uint = 3 #secs
-var con_pool_size* = 16
 
-const chunk_size* = 1024-8
-const segment_size_min* = 250
-const segment_size_max* = 1024
+const chunk_size* = 4000
 
-# const mux_segment_size* = 1024+8
-const mux_conn_per_client* = 1
-const mux_initial_conn* = 10
-const connection_buf_cap* = 5000
-const mux*: bool = true
+const mux*: bool = false
 
 type RunMode*{.pure.} = enum
     tunnel, server
@@ -85,9 +78,6 @@ proc init*() =
                     of "password":
                         password = (p.val)
                         print password
-                    of "pool":
-                        con_pool_size = parseInt(p.val).int
-                        print con_pool_size
                     of "trust_time":
                         trust_time = parseInt(p.val).uint
                         print trust_time
@@ -125,6 +115,6 @@ proc init*() =
     password_hash = $(secureHash(password))
     sh1 = hash(password_hash).uint32
     sh2 = hash(sh1).uint32
-    sh3 = (1 + (hash(sh3).uint32 mod 8)).uint8
-    print password, password_hash, sh1, sh2, sh3, con_pool_size
+    sh3 = (3 + (hash(sh2).uint32 mod 5)).uint8
+    print password, password_hash, sh1, sh2, sh3
     print "\n"

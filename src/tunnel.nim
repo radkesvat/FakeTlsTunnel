@@ -1,4 +1,4 @@
-import std/[tables, parseutils, asyncdispatch, strformat,strutils,net, random,bitops]
+import std/[tables, parseutils, asyncdispatch, strformat, strutils,net, random,bitops]
 import overrides/[asyncnet]
 import times, print,connection,pipe
 from globals import nil
@@ -21,7 +21,6 @@ proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
 
     var fc = 0
     while true:
-        
         try:
             await con.socket.connect(ip, port.Port, sni = sni)
             break
@@ -49,102 +48,68 @@ proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
     prepareMutation(random_trust_data)
     copyMem(unsafeAddr random_trust_data[0], unsafeAddr globals.sh1.uint32, 4)
     copyMem(unsafeAddr random_trust_data[4], unsafeAddr globals.sh2.uint32, 4)
+    copyMem(unsafeAddr random_trust_data[8], unsafeAddr con.id, 4)
 
     await con.socket.send(random_trust_data)
     con.trusted = TrustStatus.yes
 
 
 
+proc processConnection(client: Connection) {.async.} =
+    var client: Connection = client
+    var remote: Connection
 
-proc processRemote(arg_remote: Connection) {.async.} =
-        var remote = arg_remote
+    # var closed = false
+
+    proc chooseRemote() {.async.}
+
+    var closed = false
+    proc close()=
+        if not closed:
+            closed = true
+            if globals.log_conn_destory: echo "[processRemote] closed client & remote"
+            client.close()
+            remote.close()
+
+
+    proc processRemote() {.async.} =
         var data = ""
         while not remote.isClosed:
            
             try:
-                data = await remote.recv(globals.chunk_size+8)
+                data = await remote.recv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processRemote] {data.len()} bytes from remote"
             except:
+                close()
                 break
    
             if data.len() == 0 :
-                if globals.log_conn_destory: echo "[processRemote] closed connection to remote"
-                context.outbound.close(remote)
+                close()
                 break
 
             try:
-                var (cid, pack) = muxRead(data)
-                if pack == "":
-                    if  context.inbound.connections.hasKey(cid):
-                        if globals.log_conn_destory: echo "[processRemote] Closing client: " ,cid
-                        context.inbound.close(context.inbound.connections[cid])
-
-                elif not context.inbound.connections.hasKey(cid):
-                    if cid == 0:
-                        echo "[processRemote] Fatal Error: dose not have key:  ", cid
-                        quit(-1)
-                
-                else:
-                    if not context.inbound.connections[cid].isClosed:
-                        await context.inbound.connections[cid].send(pack)
-                        if globals.log_data_len: echo &"[processRemote] {pack.len} bytes -> client "
-
+                normalRead(data)
+                if not client.isClosed:
+                    await client.send(data)
+                    if globals.log_data_len: echo &"[processRemote] {data.len} bytes -> client "
+                        
+                       
             except:continue
-
-proc createNewCon(){.async.}=
-    var remote_con = newConnection(address = globals.next_route_addr,buffered=true)
-    await ssl_connect(remote_con,globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
-    context.outbound.register(remote_con)
-    if globals.log_conn_create:echo &"[createNewCon] created a new mux connection"
-    asyncCheck processRemote(remote_con)
-
-
-proc refillConnectionPool(){.async.}=
-    while true:
-        var count = globals.con_pool_size - context.outbound.connections.len()
-        if count > 0:
-            await createNewCon()
-
-        else:break
-
-proc processConnection(client: Connection) {.async.} =
-    var client: Connection = client
-
-    # var closed = false
-    proc chooseRemote() {.async.}
-
-
-    
-
-
-    var remote: Connection
 
 
     proc chooseRemote() {.async.}=
-        try:
-            asyncCheck refillConnectionPool()
-            remote = context.outbound.takeRandom()
-            assert not remote.isClosed()
-        except :
-            await createNewCon()
-            remote = context.outbound.takeRandom()
-            assert not remote.isClosed()
-            
-    await chooseRemote()
+        remote = newConnection(address = globals.next_route_addr)
+        remote.id = client.id
+        await ssl_connect(remote,globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
+        if globals.log_conn_create:echo &"[createNewCon] created a new connection"
+        asyncCheck processRemote()
 
+
+    await chooseRemote()
 
 
     proc processClient() {.async.} =
         var data = ""
-        proc close() {.async.} =
-            if globals.log_conn_destory: echo &"[processClient] closed client socket {client.id}"
-            context.inbound.close(client)
-            var data_to_send = ""
-            prepairTrustedSend(client.id, data_to_send)
-            if  remote.isClosed:
-                await chooseRemote()
-            await remote.send data_to_send
-            if globals.log_data_len: echo &"[processClient] client {client.id} sent {data_to_send.len} bytes -> Trusted Remote"
 
         while not client.isClosed:
 
@@ -152,19 +117,20 @@ proc processConnection(client: Connection) {.async.} =
                 data = await client.recv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processClient] {data.len()} bytes from client {client.id}"
             except:
-                # await close()
+                close()
                 break
             
-            if data == "":
-                await close()
+            if data.len() == 0:
+                close()
                 break
 
-            if  remote.isClosed:
-                await chooseRemote()
             try:
-                prepairTrustedSend(client.id,data)
-                await remote.send(data)
-                if globals.log_data_len: echo &"{data.len} bytes -> Trusted Remote"
+                if not remote.isClosed:
+                    normalSend(data)
+                    await remote.send(data)
+                    if globals.log_data_len: echo &"{data.len} bytes -> Remote"
+
+
             except:continue
 
     try:
@@ -185,13 +151,11 @@ proc start*(){.async.} =
         while true:
             let (address, client) = await context.listener.socket.acceptAddr()
             var con = newConnection(client, address)
-            context.inbound.register(con)
             if globals.log_conn_create: print "Connected client: ", address
-
+            
             asyncCheck processConnection(con)
 
 
-    await refillConnectionPool()
     echo &"Mode Tunnel:  {globals.self_ip}  <->  {globals.next_route_addr}  => {globals.final_target_domain}"
     asyncCheck start_server()
 

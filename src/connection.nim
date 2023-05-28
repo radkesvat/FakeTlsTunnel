@@ -20,7 +20,7 @@ type
         trusted*:TrustStatus
         address*:string        
         socket*:AsyncSocket
-        connected*:bool
+        counter*:uint32
             
     Connections* = object
         connections*: Table[uint32, Connection]

@@ -86,6 +86,9 @@ proc muxRead*(data:var string):  tuple[cid:uint32,data:string] =
 proc normalRead*(data:var string) = 
     decrypt data
 
+proc normalSend*(data:var string) = 
+    encrypt data
+
 
 proc prepairUnTrustedRecv(data:string) = discard
 
