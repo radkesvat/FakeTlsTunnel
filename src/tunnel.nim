@@ -1,4 +1,4 @@
-import std/[tables, parseutils, asyncdispatch, strformat, strutils,net, random,bitops]
+import std/[asyncdispatch, strformat, strutils,net, random]
 import overrides/[asyncnet]
 import times, print,connection,pipe
 from globals import nil
@@ -25,8 +25,8 @@ proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
             await con.socket.connect(ip, port.Port, sni = sni)
             break
         except :
-            echo &"ssl connect error ! retry in {min(150,fc*50)} ms"
-            await sleepAsync(min(150,fc*25))
+            echo &"ssl connect error ! retry in {min(1000,fc*50)} ms"
+            await sleepAsync(min(1000,fc*50))
             inc fc
 
                  
