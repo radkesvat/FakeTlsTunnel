@@ -1,4 +1,4 @@
-import std/[tables, parseutils, asyncdispatch, strformat, random, bitops]
+import std/[ asyncdispatch, strformat]
 import overrides/[asyncnet]
 import times, print, connection, pipe
 from globals import nil
@@ -100,7 +100,7 @@ proc processConnection(client_a: Connection) {.async.} =
         remote = await remoteUnTrusted()
         asyncCheck proccessRemote()
     except:
-        echo &"Warning! proccessRemote root level exception ?!"
+        echo &"[Error] Failed to connect to the Target {globals.final_target_ip}:{globals.final_target_port}"
         client.close()
         return
 
@@ -127,7 +127,13 @@ proc processConnection(client_a: Connection) {.async.} =
                     client.trusted = TrustStatus.yes
                     print "Fake Handshake Complete !"
                     remote.close()
-                    remote = await remoteTrusted()
+                    try:
+                        remote = await remoteTrusted()
+                    except :
+                        echo &"[Error] Failed to connect to the Target {globals.next_route_addr}:{globals.next_route_port}"
+                        close()
+                        break
+
                     asyncCheck proccessRemote()
                     
                     continue
