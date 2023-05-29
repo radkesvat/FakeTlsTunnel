@@ -17,6 +17,7 @@ let ssl_ctx = newContext(verifyMode = CVerifyPeer)
         
 
 proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
+
     wrapSocket(ssl_ctx, con.socket)
 
     var fc = 0
@@ -69,12 +70,16 @@ proc processConnection(client: Connection) {.async.} =
             closed = true
             if globals.log_conn_destory: echo "[processRemote] closed client & remote"
             client.close()
+            if remote.isTrusted:
+                remote.socket.isSsl = true
             remote.close()
+            client = nil
+            remote = nil
 
 
     proc processRemote() {.async.} =
         var data = ""
-        while not remote.isClosed:
+        while (not remote.isClosed) and  (not client.isClosed):
            
             try:
                 data = await remote.recv(globals.chunk_size)
@@ -95,7 +100,7 @@ proc processConnection(client: Connection) {.async.} =
                         
                        
             except:continue
-
+        close()
 
     proc chooseRemote() {.async.}=
         remote = newConnection(address = globals.next_route_addr)
@@ -111,7 +116,7 @@ proc processConnection(client: Connection) {.async.} =
     proc processClient() {.async.} =
         var data = ""
 
-        while not client.isClosed:
+        while not (not remote.isClosed) and  (not client.isClosed):
 
             try:
                 data = await client.recv(globals.chunk_size)
@@ -132,7 +137,7 @@ proc processConnection(client: Connection) {.async.} =
 
 
             except:continue
-
+        close()
     try:
         asyncCheck processClient()
     except:
@@ -158,4 +163,9 @@ proc start*(){.async.} =
 
     echo &"Mode Tunnel:  {globals.self_ip}  <->  {globals.next_route_addr}  => {globals.final_target_domain}"
     asyncCheck start_server()
+
+    # while true:
+    #     await sleepAsync(1500)
+    #     print getFuturesInProgress()
+        
 
