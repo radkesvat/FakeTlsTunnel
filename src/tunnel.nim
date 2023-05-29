@@ -73,13 +73,11 @@ proc processConnection(client: Connection) {.async.} =
             if remote.isTrusted:
                 remote.socket.isSsl = true
             remote.close()
-            client = nil
-            remote = nil
 
 
     proc processRemote() {.async.} =
         var data = ""
-        while (not remote.isClosed) and  (not client.isClosed):
+        while (not remote.isClosed):
            
             try:
                 data = await remote.recv(globals.chunk_size)
@@ -100,7 +98,6 @@ proc processConnection(client: Connection) {.async.} =
                         
                        
             except:continue
-        close()
 
     proc chooseRemote() {.async.}=
         remote = newConnection(address = globals.next_route_addr)
@@ -116,7 +113,7 @@ proc processConnection(client: Connection) {.async.} =
     proc processClient() {.async.} =
         var data = ""
 
-        while not (not remote.isClosed) and  (not client.isClosed):
+        while (not client.isClosed):
 
             try:
                 data = await client.recv(globals.chunk_size)
@@ -137,7 +134,7 @@ proc processConnection(client: Connection) {.async.} =
 
 
             except:continue
-        close()
+
     try:
         asyncCheck processClient()
     except:
