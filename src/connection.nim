@@ -80,8 +80,8 @@ proc newConnection*(socket: AsyncSocket = nil, address: string, buffered: bool =
     if socket == nil: result.socket = newAsyncSocket(buffered = buffered)
     else: result.socket = socket
 
-    
-    result.socket.setSockOpt(OptNoDelay, true)
+    when not defined(android)
+        result.socket.setSockOpt(OptNoDelay, true)
 
 proc register*(cons: var Connections, con: Connection) =
     if con.id == 0:
