@@ -4,7 +4,7 @@ from globals import nil
 import tunnel,server
 
 
-when defined(linux):
+when defined(linux) and not defined(android):
     import std/posix
     if not isAdmin():
         echo "Please run as root."
