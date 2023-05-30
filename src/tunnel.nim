@@ -1,45 +1,41 @@
-import std/[asyncdispatch, strformat, strutils,net, random]
+import std/[asyncdispatch, strformat, strutils, net, tables, random]
 import overrides/[asyncnet]
-import times, print,connection,pipe
+import times, print, connection, pipe
 from globals import nil
 
 
 
 type
     TunnelConnectionPoolContext = object
-        listener: Connection 
+        listener: Connection
         inbound: Connections
         outbound: Connections
-        
+
 var context = TunnelConnectionPoolContext()
 let ssl_ctx = newContext(verifyMode = CVerifyPeer)
 
-        
+
 
 proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
-
     wrapSocket(ssl_ctx, con.socket)
-
     var fc = 0
     while true:
         try:
             await con.socket.connect(ip, port.Port, sni = sni)
             break
-        except :
+        except:
             echo &"ssl connect error ! retry in {min(1000,fc*50)} ms"
-            await sleepAsync(min(1000,fc*50))
+            await sleepAsync(min(1000, fc*50))
             inc fc
 
-                 
     print "ssl socket conencted"
-    
-    # let to_send = &"GET / HTTP/1.1\nHost: {sni}\nAccept: */*\n\n"
 
+    # let to_send = &"GET / HTTP/1.1\nHost: {sni}\nAccept: */*\n\n"
     # await socket.send(to_send)  [not required ...]
 
     con.socket.isSsl = false #now break it
 
-    let rlen = 16*(2+rand(4)) 
+    let rlen = 16*(4+rand(4))
     var random_trust_data: string
     random_trust_data.setLen(rlen)
 
@@ -55,6 +51,20 @@ proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
     con.trusted = TrustStatus.yes
 
 
+proc poolFrame() =
+    proc create() =
+        var con = newConnection(address = globals.next_route_addr)
+        var fut = ssl_connect(con, globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
+        fut.addCallback(
+            proc() {.gcsafe.} =
+            if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
+            context.outbound.register con
+        )
+
+    var i = context.outbound.connections.len()
+    for i in 0..globals.pool_size:
+        create()
+
 
 proc processConnection(client: Connection) {.async.} =
     var client: Connection = client
@@ -65,7 +75,7 @@ proc processConnection(client: Connection) {.async.} =
     proc chooseRemote() {.async.}
 
     var closed = false
-    proc close()=
+    proc close() =
         if not closed:
             closed = true
             if globals.log_conn_destory: echo "[processRemote] closed client & remote"
@@ -78,15 +88,15 @@ proc processConnection(client: Connection) {.async.} =
     proc processRemote() {.async.} =
         var data = ""
         while (not remote.isClosed):
-           
+
             try:
                 data = await remote.recv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processRemote] {data.len()} bytes from remote"
             except:
                 close()
                 break
-   
-            if data.len() == 0 :
+
+            if data.len() == 0:
                 close()
                 break
 
@@ -95,16 +105,29 @@ proc processConnection(client: Connection) {.async.} =
                 if not client.isClosed:
                     await client.send(data)
                     if globals.log_data_len: echo &"[processRemote] {data.len} bytes -> client "
-                        
-                       
-            except:continue
 
-    proc chooseRemote() {.async.}=
-        remote = newConnection(address = globals.next_route_addr)
-        remote.id = client.id
-        await ssl_connect(remote,globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
-        if globals.log_conn_create:echo &"[createNewCon] created a new connection"
-        asyncCheck processRemote()
+
+            except: continue
+
+    proc chooseRemote() {.async.} =
+        # poolFrame()
+        remote = context.outbound.grab()
+        if remote != nil:
+                if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
+                poolFrame()
+                asyncCheck processRemote()
+                return
+
+        await sleepAsync(600)
+        remote = context.outbound.grab()
+        
+        if remote != nil:
+            if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
+            poolFrame()
+            asyncCheck processRemote()
+        else:
+            if globals.log_conn_destory: echo &"[createNewCon][Error] left without connection, closes forcefully."
+            client.close()
 
 
     await chooseRemote()
@@ -121,7 +144,7 @@ proc processConnection(client: Connection) {.async.} =
             except:
                 close()
                 break
-            
+
             if data.len() == 0:
                 close()
                 break
@@ -133,7 +156,7 @@ proc processConnection(client: Connection) {.async.} =
                     if globals.log_data_len: echo &"{data.len} bytes -> Remote"
 
 
-            except:continue
+            except: continue
 
     try:
         asyncCheck processClient()
@@ -143,7 +166,7 @@ proc processConnection(client: Connection) {.async.} =
 
 proc start*(){.async.} =
     proc start_server(){.async.} =
-        
+
         context.listener = newConnection(address = "This Server")
         context.listener.socket.setSockOpt(OptReuseAddr, true)
         context.listener.socket.bindAddr(globals.listen_port.Port, globals.listen_addr)
@@ -154,15 +177,16 @@ proc start*(){.async.} =
             let (address, client) = await context.listener.socket.acceptAddr()
             var con = newConnection(client, address)
             if globals.log_conn_create: print "Connected client: ", address
-            
+
             asyncCheck processConnection(con)
 
-
+    poolFrame()
+    await sleepAsync(1200)
     echo &"Mode Tunnel:  {globals.self_ip}  <->  {globals.next_route_addr}  => {globals.final_target_domain}"
     asyncCheck start_server()
 
     # while true:
     #     await sleepAsync(1500)
     #     print getFuturesInProgress()
-        
+
 
