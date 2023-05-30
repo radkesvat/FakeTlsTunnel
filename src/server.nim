@@ -47,8 +47,11 @@ proc processConnection(client_a: Connection) {.async.} =
     proc remoteTrusted(): Future[Connection]{.async.} =
         var new_remote = newConnection(address = globals.next_route_addr)
         new_remote.trusted = TrustStatus.yes
-        await new_remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
-        if globals.log_conn_create: echo "connected to ", globals.next_route_addr, ":", $globals.next_route_port
+        new_remote.estabilished = false
+
+
+        # await new_remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
+        # if globals.log_conn_create: echo "connected to ", globals.next_route_addr, ":", $globals.next_route_port
         return new_remote
 
 
@@ -78,6 +81,7 @@ proc processConnection(client_a: Connection) {.async.} =
             except:
                 if  client.isTrusted():
                     if globals.log_conn_destory: echo "[processRemote] closed remote"
+
                     continue
                 else:
                     close()
@@ -120,6 +124,11 @@ proc processConnection(client_a: Connection) {.async.} =
             if data == "":
                 close()
                 break
+            if (remote.isTrusted()) and (not remote.estabilished):
+                remote.estabilished = true
+                await remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
+                asyncCheck proccessRemote()
+                        
 
             if client.trusted == TrustStatus.pending:
                 var (trust,id) = monitorData(data)
@@ -127,6 +136,8 @@ proc processConnection(client_a: Connection) {.async.} =
                     client.trusted = TrustStatus.yes
                     print "Fake Handshake Complete !"
                     remote.close()
+                    asyncdispatch.poll()
+
                     try:
                         remote = await remoteTrusted()
                     except :
@@ -134,8 +145,6 @@ proc processConnection(client_a: Connection) {.async.} =
                         close()
                         break
 
-                    asyncCheck proccessRemote()
-                    
                     continue
                 elif (epochTime().uint - client.creation_time) > globals.trust_time:
                     echo "[proccessClient] non-client connection detected !  forwarding to real website."
