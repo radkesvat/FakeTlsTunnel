@@ -10,6 +10,7 @@ when defined(linux):
         quit(-1)
     assert 0 == execShellCmd("sudo ufw disable")
     assert 0 == execShellCmd("sysctl -w fs.file-max=100000")
+    assert 0 == execShellCmd("ulimit -n 65000")
 
 randomize()
 globals.init()
