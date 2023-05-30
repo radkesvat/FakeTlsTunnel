@@ -20,7 +20,7 @@ type
         trusted*: TrustStatus
         address*: string
         socket*: AsyncSocket
-        counter*: uint32
+        estabilished*: bool
 
     Connections* = object
         connections*: Table[uint32, Connection]
@@ -30,19 +30,6 @@ type
 template send*(con: Connection, data: string): untyped = con.socket.send(data)
 template recv*(con: Connection, data: SomeInteger): untyped = con.socket.recv(data)
 
-
-proc sendF*(con: Connection, data: string){.async.} =
-    await send(con, data)
-    # var dlen = data.len()
-    # var index = 0
-    # while dlen > 1024:
-    #     let s = 1024
-    #     dlen = dlen-1024
-    #     index = index + 1024
-    #     await con.socket.send(unsafeAddr data[index],1024)
-
-    # if dlen > 0:
-    #     await con.socket.send(unsafeAddr data[index],dlen)
 
 
 
@@ -82,6 +69,17 @@ proc newConnection*(socket: AsyncSocket = nil, address: string, buffered: bool =
 
     when not defined(android):
         result.socket.setSockOpt(OptNoDelay, true)
+
+
+# proc attachID*(con : var Connection)=
+#     if con.id == 0:
+#         con.id = new_uid()
+
+proc grab*(cons: var Connections):Connection=
+    if cons.connections.len() == 0: return nil
+    for k in cons.connections.keys:
+        assert cons.connections.pop(k,result)
+        return result
 
 proc register*(cons: var Connections, con: Connection) =
     if con.id == 0:
