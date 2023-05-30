@@ -8,6 +8,7 @@ const log_conn_create* = true
 const log_conn_destory* = true
 
 var trust_time*: uint = 3 #secs
+var pool_size*: uint = 16 #secs
 
 const chunk_size* = 4000
 
@@ -78,6 +79,9 @@ proc init*() =
                     of "password":
                         password = (p.val)
                         print password
+                    of "pool_size":
+                        pool_size = parseInt(p.val).uint
+                        print pool_size
                     of "trust_time":
                         trust_time = parseInt(p.val).uint
                         print trust_time
@@ -116,5 +120,5 @@ proc init*() =
     sh1 = hash(password_hash).uint32
     sh2 = hash(sh1).uint32
     sh3 = (3 + (hash(sh2).uint32 mod 5)).uint8
-    print password, password_hash, sh1, sh2, sh3
+    print password, password_hash, sh1, sh2, sh3, pool_size
     print "\n"
