@@ -35,7 +35,7 @@ printf  "\n"
 
 wget "https://github.com/radkesvat/FakeTlsTunnel/releases/download/V9/v9_linux_amd64.zip" -O v9_linux_amd64.zip
 unzip -o v9_linux_amd64.zip
-sudo chmod +x FTT
+chmod +x FTT
 rm v9_linux_amd64.zip
 
 echo "finished."
