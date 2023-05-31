@@ -62,8 +62,9 @@ proc poolFrame() =
         )
 
     var i = context.outbound.connections.len()
-    for i in 0..globals.pool_size:
+    while i.uint32 < globals.pool_size:
         create()
+        inc i
 
 
 proc processConnection(client: Connection) {.async.} =
