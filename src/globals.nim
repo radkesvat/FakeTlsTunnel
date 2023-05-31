@@ -79,7 +79,7 @@ proc init*() =
                     of "password":
                         password = (p.val)
                         print password
-                    of "pool_size":
+                    of "pool":
                         pool_size = parseInt(p.val).uint
                         print pool_size
                     of "trust_time":
