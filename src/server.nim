@@ -126,8 +126,12 @@ proc processConnection(client_a: Connection) {.async.} =
                 break
             if (remote.isTrusted()) and (not remote.estabilished):
                 remote.estabilished = true
-                await remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
-                asyncCheck proccessRemote()
+                try:
+                    await remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
+                    asyncCheck proccessRemote()  
+                except:
+                    close()
+                    break
                         
 
             if client.trusted == TrustStatus.pending:
