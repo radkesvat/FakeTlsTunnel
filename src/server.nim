@@ -119,7 +119,7 @@ proc processConnection(client_a: Connection) {.async.} =
                 if globals.log_data_len: echo &"[proccessClient] {data.len()} bytes from client"
             except:
                 close()
-                continue
+                break
 
             if data == "":
                 close()
