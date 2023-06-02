@@ -63,8 +63,13 @@ proc poolFrame() =
 
     var i = context.outbound.connections.len()
     while i.uint32 < globals.pool_size:
-        create()
-        inc i
+        try:
+            create()
+            inc i
+        except:
+            discard
+            
+
 
 
 proc processConnection(client: Connection) {.async.} =
@@ -114,14 +119,14 @@ proc processConnection(client: Connection) {.async.} =
         # poolFrame()
         remote = context.outbound.grab()
         if remote != nil:
-                if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
-                poolFrame()
-                asyncCheck processRemote()
-                return
+            if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
+            poolFrame()
+            asyncCheck processRemote()
+            return
 
         await sleepAsync(600)
         remote = context.outbound.grab()
-        
+
         if remote != nil:
             if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
             poolFrame()
