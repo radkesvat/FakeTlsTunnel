@@ -49,7 +49,7 @@ task build_server, "builds server":
     switch("passC", "-I "&libs_dir&"/hwinfo/include/")
     # switch("define","asyncBackend=asyncdispatch")
 
-
+    switch("nimcache", "build"/hostOS/hostCPU)
     # switch("define", "logGC")
     switch("define", "ssl")
     # switch("passC", "-static-libstdc++")

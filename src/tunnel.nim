@@ -15,17 +15,18 @@ var context = TunnelConnectionPoolContext()
 let ssl_ctx = newContext(verifyMode = CVerifyPeer)
 
 
-
 proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
     wrapSocket(ssl_ctx, con.socket)
     var fc = 0
     while true:
+        if fc > 6:
+            raise newException(ValueError, "Request Timed Out!")
         try:
             await con.socket.connect(ip, port.Port, sni = sni)
             break
         except:
             echo &"ssl connect error ! retry in {min(1000,fc*50)} ms"
-            await sleepAsync(min(1000, fc*50))
+            await sleepAsync(min(1000, fc*200))
             inc fc
 
     print "ssl socket conencted"
@@ -57,8 +58,11 @@ proc poolFrame() =
         var fut = ssl_connect(con, globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
         fut.addCallback(
             proc() {.gcsafe.} =
-            if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
-            context.outbound.register con
+                if fut.failed:
+                    echo fut.error.msg
+                else:
+                    if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
+                    context.outbound.register con
         )
 
     var i = context.outbound.connections.len()
@@ -76,10 +80,6 @@ proc processConnection(client: Connection) {.async.} =
     var client: Connection = client
     var remote: Connection
 
-    # var closed = false
-
-    proc chooseRemote() {.async.}
-
     var closed = false
     proc close() =
         if not closed:
@@ -93,7 +93,7 @@ proc processConnection(client: Connection) {.async.} =
 
     proc processRemote() {.async.} =
         var data = ""
-        while (not remote.isClosed):
+        while not remote.isClosed:
 
             try:
                 data = await remote.recv(globals.chunk_size)
@@ -116,7 +116,6 @@ proc processConnection(client: Connection) {.async.} =
             except: continue
 
     proc chooseRemote() {.async.} =
-        # poolFrame()
         remote = context.outbound.grab()
         if remote != nil:
             if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
@@ -142,8 +141,7 @@ proc processConnection(client: Connection) {.async.} =
     proc processClient() {.async.} =
         var data = ""
 
-        while (not client.isClosed):
-
+        while not client.isClosed:
             try:
                 data = await client.recv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processClient] {data.len()} bytes from client {client.id}"
@@ -154,16 +152,13 @@ proc processConnection(client: Connection) {.async.} =
             if data.len() == 0:
                 close()
                 break
-
             try:
                 if not remote.isClosed:
                     normalSend(data)
                     await remote.send(data)
                     if globals.log_data_len: echo &"{data.len} bytes -> Remote"
 
-
             except: continue
-
     try:
         asyncCheck processClient()
     except:
@@ -191,8 +186,5 @@ proc start*(){.async.} =
     echo &"Mode Tunnel:  {globals.self_ip}  <->  {globals.next_route_addr}  => {globals.final_target_domain}"
     asyncCheck start_server()
 
-    # while true:
-    #     await sleepAsync(1500)
-    #     print getFuturesInProgress()
 
 

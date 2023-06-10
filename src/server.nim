@@ -48,10 +48,6 @@ proc processConnection(client_a: Connection) {.async.} =
         var new_remote = newConnection(address = globals.next_route_addr)
         new_remote.trusted = TrustStatus.yes
         new_remote.estabilished = false
-
-
-        # await new_remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
-        # if globals.log_conn_create: echo "connected to ", globals.next_route_addr, ":", $globals.next_route_port
         return new_remote
 
 
@@ -69,8 +65,6 @@ proc processConnection(client_a: Connection) {.async.} =
             if globals.log_conn_destory: echo "[processRemote] closed client & remote"
             client.close()
             remote.close()
-
-
 
     proc proccessRemote() {.async.} =
         var data = ""

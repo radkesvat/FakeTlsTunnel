@@ -1,7 +1,7 @@
 
 import std/[random,os,osproc,asyncdispatch]
 from globals import nil
-import tunnel,server
+import tunnel,server,print
 
 
 when defined(linux) and not defined(android):
@@ -9,8 +9,8 @@ when defined(linux) and not defined(android):
     if not isAdmin():
         echo "Please run as root."
         quit(-1)
-    assert 0 == execShellCmd("sudo ufw disable")
-    assert 0 == execShellCmd("sysctl -w fs.file-max=100000")
+    discard 0 == execShellCmd("sudo ufw disable")
+    discard 0 == execShellCmd("sysctl -w fs.file-max=100000")
     var limit = RLimit(rlim_cur:65000,rlim_max:66000)
     assert 0 == setrlimit(RLIMIT_NOFILE,limit)
 
