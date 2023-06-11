@@ -22,7 +22,7 @@ if [ "" = "$PKG_OK" ]; then
   sudo apt-get --yes install $REQUIRED_PKG
 fi
 
-
+pkill FTT
 printf  "\n"
 printf  "\n"
 
