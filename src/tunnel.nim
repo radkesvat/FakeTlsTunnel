@@ -58,11 +58,11 @@ proc poolFrame() =
         var fut = ssl_connect(con, globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
         fut.addCallback(
             proc() {.gcsafe.} =
-                if fut.failed:
-                    echo fut.error.msg
-                else:
-                    if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
-                    context.outbound.register con
+            if fut.failed:
+                echo fut.error.msg
+            else:
+                if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
+                context.outbound.register con
         )
 
     var i = context.outbound.connections.len()
@@ -72,7 +72,7 @@ proc poolFrame() =
             inc i
         except:
             discard
-            
+
 
 
 
@@ -86,24 +86,22 @@ proc processConnection(client: Connection) {.async.} =
             closed = true
             if globals.log_conn_destory: echo "[processRemote] closed client & remote"
             client.close()
-            if remote.isTrusted:
-                remote.socket.isSsl = true
-            remote.close()
+            if not remote.isNil():
+                if remote.isTrusted:
+                    remote.socket.isSsl = true
+                remote.close()
 
 
     proc processRemote() {.async.} =
         var data = ""
         while not remote.isClosed:
-
             try:
                 data = await remote.recv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processRemote] {data.len()} bytes from remote"
             except:
-                close()
                 break
 
             if data.len() == 0:
-                close()
                 break
 
             try:
@@ -112,8 +110,8 @@ proc processConnection(client: Connection) {.async.} =
                     await client.send(data)
                     if globals.log_data_len: echo &"[processRemote] {data.len} bytes -> client "
 
-
-            except: continue
+            except: break
+        close()
 
     proc chooseRemote() {.async.} =
         remote = context.outbound.grab()
@@ -146,11 +144,9 @@ proc processConnection(client: Connection) {.async.} =
                 data = await client.recv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processClient] {data.len()} bytes from client {client.id}"
             except:
-                close()
                 break
 
             if data.len() == 0:
-                close()
                 break
             try:
                 if not remote.isClosed:
@@ -158,7 +154,8 @@ proc processConnection(client: Connection) {.async.} =
                     await remote.send(data)
                     if globals.log_data_len: echo &"{data.len} bytes -> Remote"
 
-            except: continue
+            except: break
+        close()
     try:
         asyncCheck processClient()
     except:
