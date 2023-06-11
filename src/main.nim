@@ -1,7 +1,7 @@
 
 import std/[random,os,osproc,asyncdispatch]
 from globals import nil
-import tunnel,server,print
+import connection,tunnel,server,print
 
 
 when defined(linux) and not defined(android):
@@ -17,7 +17,7 @@ when defined(linux) and not defined(android):
 randomize()
 globals.init()
 
-
+asyncCheck startController()
 if globals.mode == globals.RunMode.tunnel:
     asyncCheck tunnel.start()
 else:
