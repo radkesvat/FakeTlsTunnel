@@ -52,7 +52,7 @@ proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
     con.trusted = TrustStatus.yes
 
 
-proc poolFrame() =
+proc poolFrame(count : uint = 0) =
     proc create() =
         var con = newConnection(address = globals.next_route_addr)
         var fut = ssl_connect(con, globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
@@ -66,7 +66,7 @@ proc poolFrame() =
         )
 
     var i = context.outbound.connections.len()
-    while i.uint32 < globals.pool_size:
+    while i.uint32 < (if count == 0 :globals.pool_size else: count):
         try:
             create()
             inc i
@@ -129,7 +129,9 @@ proc processConnection(client: Connection) {.async.} =
             poolFrame()
             asyncCheck processRemote()
         else:
+            
             if globals.log_conn_destory: echo &"[createNewCon][Error] left without connection, closes forcefully."
+            poolFrame(1)
             client.close()
 
 
