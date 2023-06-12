@@ -74,14 +74,17 @@ proc processConnection(client_a: Connection) {.async.} =
             except:
                 if client.isTrusted():
                     if remote.estabilished:
+                        close()
                         break
                     else:   
                         if globals.log_conn_destory: echo "[processRemote] closed remote"
-                        continue
+                        break
                 else:
+                    close()
                     break
 
             if data.len() == 0:
+                close()
                 break
             try:
                 if not client.isClosed():
@@ -89,8 +92,10 @@ proc processConnection(client_a: Connection) {.async.} =
                         normalSend(data)
                     await client.send(data)
                     if globals.log_data_len: echo &"[proccessRemote] Sent {data.len()} bytes ->  client"
-            except: break
-        close()
+            except: 
+                close()
+                break
+        
 
     try:
         remote = await remoteUnTrusted()
@@ -168,7 +173,6 @@ proc start*(){.async.} =
     proc start_server(){.async.} =
 
         context.listener = newConnection(address = "This Server")
-        context.listener.socket.setSockOpt(OptReuseAddr, true)
         context.listener.socket.setSockOpt(OptReuseAddr, true)
         context.listener.socket.bindAddr(globals.listen_port.Port, globals.listen_addr)
         echo &"Started tcp server... {globals.listen_addr}:{globals.listen_port}"
