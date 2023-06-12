@@ -15,7 +15,7 @@ type
 
     Connection* = ref object
         creation_time*: uint
-        recv_start_time*: uint
+        action_start_time*: uint
         id*: uint32
         trusted*: TrustStatus
         address*: string
@@ -30,22 +30,32 @@ var allConnections:seq[Connection]
 # proc has(cons:Connections,con:Connection):bool =cons.connections.hasKey(con.id)
 
 template send*(con: Connection, data: string): untyped = 
-    con.socket.send(data)
+    con.action_start_time = et
+    var result = con.socket.send(data)
+    result.addCallback(proc()=
+        con.action_start_time = 0
+    )
+    result
+
 template recv*(con: Connection, data: SomeInteger): untyped = 
-    con.recv_start_time = et
+    con.action_start_time = et
     var result = con.socket.recv(data)
     result.addCallback(proc()=
-        con.recv_start_time = 0
+        con.action_start_time = 0
     )
     result
 
 proc isClosed*(con: Connection): bool = con.socket.isClosed()
-template close*(con: Connection) = con.socket.close()
-
-proc close*(cons: var Connections, con: Connection) =
+template close*(con: Connection) = 
     con.socket.close()
-    if cons.connections.hasKey(con.id):
-        cons.connections.del(con.id)
+    let i = allConnections.find(con)
+    if i != -1:
+        allConnections.del(i)
+
+# proc close*(cons: var Connections, con: Connection) =
+#     con.socket.close()
+#     if cons.connections.hasKey(con.id):
+#         cons.connections.del(con.id)
 
 proc isTrusted*(con: Connection): bool = con.trusted == TrustStatus.yes
 
@@ -69,7 +79,7 @@ proc newConnection*(socket: AsyncSocket = nil, address: string, buffered: bool =
     result.creation_time = epochTime().uint32
     result.trusted = TrustStatus.pending
     result.address = address
-    result.recv_start_time = 0
+    result.action_start_time = 0
 
     if socket == nil: result.socket = newAsyncSocket(buffered = buffered)
     else: result.socket = socket
@@ -105,8 +115,8 @@ proc startController*(){.async.}=
         var to_del:seq[int]
         allConnections.keepIf(
             proc(x: Connection):bool =
-                if x.recv_start_time == 0: return true
-                if et - x.recv_start_time > globals.max_idle_time :
+                if x.action_start_time == 0: return true
+                if et - x.action_start_time > globals.max_idle_time :
                     x.socket.close()
                     return false
                 return true
