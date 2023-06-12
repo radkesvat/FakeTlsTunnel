@@ -78,7 +78,7 @@ task build_server, "builds server":
 
 task build, "builds all":
 
-    echo staticExec "pkill FTT"
+    # echo staticExec "pkill FTT"
     exec "nim build_server"
     withDir(output_dir):
         exec "chmod +x FTT"
