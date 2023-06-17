@@ -2,13 +2,6 @@ import overrides/[asyncnet]
 import std/[tables,sequtils, times,os , random, asyncdispatch, strutils, net, random]
 import globals
 
-
-var lgid: uint32 = 1
-proc new_uid: uint32 =
-    result = lgid
-    inc lgid
-var et:uint = 0
-
 type
     TrustStatus*{.pure.} = enum
         no, pending, yes
@@ -21,11 +14,19 @@ type
         address*: string
         socket*: AsyncSocket
         estabilished*: bool
+        isfakessl*:bool
 
     Connections* = object
         connections*: Table[uint32, Connection]
 
 var allConnections:seq[Connection]
+
+
+var lgid: uint32 = 1
+proc new_uid: uint32 =
+    result = lgid
+    inc lgid
+var et:uint = 0
 
 # proc has(cons:Connections,con:Connection):bool =cons.connections.hasKey(con.id)
 
@@ -46,7 +47,12 @@ template recv*(con: Connection, data: SomeInteger): untyped =
     result
 
 proc isClosed*(con: Connection): bool = con.socket.isClosed()
+
 template close*(con: Connection) = 
+    if con.isfakessl:
+        if con.isTrusted:
+            con.socket.isSsl = true
+
     con.socket.close()
     let i = allConnections.find(con)
     if i != -1:
@@ -112,7 +118,6 @@ proc startController*(){.async.}=
     while true:
         et = epochTime().uint
         await sleepAsync(1000)
-        var to_del:seq[int]
         allConnections.keepIf(
             proc(x: Connection):bool =
                 if x.action_start_time == 0: return true
