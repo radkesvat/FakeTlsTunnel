@@ -10,7 +10,7 @@ const log_conn_destory* = true
 
 var trust_time*: uint = 3 #secs
 var pool_size*: uint = 16 #secs
-var max_idle_time*:uint = 60 #secs
+var max_idle_time*:uint = 1000 #secs (default TCP RFC is 3600)
 
 const chunk_size* = 4000
 
