@@ -28,7 +28,7 @@ proc new_uid: uint32 =
     inc lgid
 var et:uint = 0
 
-# proc has(cons:Connections,con:Connection):bool =cons.connections.hasKey(con.id)
+proc isTrusted*(con: Connection): bool = con.trusted == TrustStatus.yes
 
 template send*(con: Connection, data: string): untyped = 
     con.action_start_time = et
@@ -48,11 +48,13 @@ template recv*(con: Connection, data: SomeInteger): untyped =
 
 proc isClosed*(con: Connection): bool = con.socket.isClosed()
 
-template close*(con: Connection) = 
+
+proc prepairClose(con: Connection) = 
     if con.isfakessl:
         if con.isTrusted:
             con.socket.isSsl = true
-
+template close*(con: Connection) = 
+    prepairClose(con)
     con.socket.close()
     let i = allConnections.find(con)
     if i != -1:
@@ -63,7 +65,6 @@ template close*(con: Connection) =
 #     if cons.connections.hasKey(con.id):
 #         cons.connections.del(con.id)
 
-proc isTrusted*(con: Connection): bool = con.trusted == TrustStatus.yes
 
 proc takeRandom*(cons: Connections): Connection =
     var chosen = rand(cons.connections.len()-1)
@@ -122,6 +123,7 @@ proc startController*(){.async.}=
             proc(x: Connection):bool =
                 if x.action_start_time == 0: return true
                 if et - x.action_start_time > globals.max_idle_time :
+                    prepairClose(x)
                     x.socket.close()
                     return false
                 return true
