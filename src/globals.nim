@@ -1,6 +1,7 @@
 import dns_resolve, hashes, print, parseopt, strutils, random, net
 import std/sha1
 
+const version = "10.2"
 const socket_buffered* = false
 
 const log_data_len* = false
@@ -42,6 +43,7 @@ var sh3*: uint8
 var random_600* = newString(len = 600)
 
 proc init*() =
+    print version
 
     for i in 0..<random_600.len():
         random_600[i] = rand(char.low .. char.high).char
@@ -113,7 +115,6 @@ proc init*() =
 
     if exit: quit(-1)
 
-    print "\n"
     final_target_ip = resolveIPv4(final_target_domain)
     print "\n"
     self_ip = $(getPrimaryIPAddr(dest = parseIpAddress("8.8.8.8")))
