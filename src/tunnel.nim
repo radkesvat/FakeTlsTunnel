@@ -17,6 +17,7 @@ let ssl_ctx = newContext(verifyMode = CVerifyPeer)
 
 proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
     wrapSocket(ssl_ctx, con.socket)
+    con.isfakessl = true
     var fc = 0
     while true:
         if fc > 6:
@@ -64,6 +65,7 @@ proc poolFrame(count : uint = 0) =
                 if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
                 context.outbound.register con
         )
+        
 
     var i = context.outbound.connections.len()
     while i.uint32 < (if count == 0 :globals.pool_size else: count):
@@ -87,8 +89,6 @@ proc processConnection(client: Connection) {.async.} =
             if globals.log_conn_destory: echo "[processRemote] closed client & remote"
             client.close()
             if not remote.isNil():
-                if remote.isTrusted:
-                    remote.socket.isSsl = true
                 remote.close()
 
 
