@@ -2,45 +2,49 @@ import dns_resolve, hashes, print, parseopt, strutils, random, net
 import std/sha1
 
 const version = "10.2"
-const socket_buffered* = false
-
-const log_data_len* = false
-const log_conn_create* = true
-const log_conn_destory* = true
-
-var trust_time*: uint = 3 #secs
-var pool_size*: uint = 16 #secs
-var max_idle_time*:uint = 1000 #secs (default TCP RFC is 3600)
-
-const chunk_size* = 4000
-
-const mux*: bool = false
 
 type RunMode*{.pure.} = enum
     tunnel, server
 
-
 var mode*: RunMode = RunMode.tunnel
+
+# [Log Options]
+const log_data_len* = false
+const log_conn_create* = true
+const log_conn_destory* = true
+
+
+# [Connection]
+var trust_time*: uint = 3 #secs
+var pool_size*: uint = 16 #secs
+var max_idle_time*:uint = 1000 #secs (default TCP RFC is 3600)
+const mux*: bool = false
+const socket_buffered* = false
+const chunk_size* = 4000
+
+
+# [Routes]
 const listen_addr* = "0.0.0.0"
 var listen_port* = -1
 var next_route_addr* = ""
 var next_route_port* = -1
 var final_target_domain* = ""
 var final_target_ip*: string
-const final_target_port* = 443
-
-
+const final_target_port* = 443 # port of the sni host (443 for tls handshake)
 var self_ip*: string
 
 
-
+# [passwords and hashes]
 var password* = ""
 var password_hash*: string
 var sh1*: uint32
 var sh2*: uint32
 var sh3*: uint8
-
 var random_600* = newString(len = 600)
+
+var disable_ufw = true
+
+
 
 proc init*() =
     print version
@@ -48,7 +52,7 @@ proc init*() =
     for i in 0..<random_600.len():
         random_600[i] = rand(char.low .. char.high).char
 
-    var p = initOptParser(longNoVal = @["server", "tunnel"])
+    var p = initOptParser(longNoVal = @["server", "tunnel", "ufw"])
     while true:
         p.next()
         case p.kind
@@ -62,6 +66,8 @@ proc init*() =
                     of "tunnel":
                         mode = RunMode.tunnel
                         print mode
+                     of "ufw":
+                        disable_ufw = true
                     else:
                         echo "specify mode (--tunnel or --server)"
                         quit(-1)
