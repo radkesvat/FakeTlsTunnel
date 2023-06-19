@@ -58,10 +58,22 @@ task build_server, "builds server":
         switch("opt", "speed")
         switch("debugger", "off")
         switch("d", "release")
+        # switch("d", "danger") #maximum speed in cost of ...?
+
         switch("passL", " -s")
         switch("debuginfo", "off")
         switch("passC", "-DNDEBUG")
 
+        switch("obj_checks","off")
+        switch("field_checks","off")
+        switch("range_checks","off")
+        switch("bound_checks","off")
+        switch("overflow_checks","off")
+        # switch("assertions","off")
+        switch("stacktrace","off")
+        switch("linetrace","off")
+        switch("debugger","off")
+        switch("line_dir","off")
 
         # switch("assertions", "off")
         # switch("checks", "off")
