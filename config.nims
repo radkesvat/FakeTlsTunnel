@@ -41,24 +41,20 @@ task build_server, "builds server":
     switch("mm", "orc")
     switch("warning", "BareExcept:off")
     # switch("cc", "clang")
-    # switch("path", src_dir&"/packages")
-
 
     switch("path", src_dir)
     switch("path", libs_dir)
     switch("passC", "-I "&libs_dir&"/hwinfo/include/")
-    # switch("define","asyncBackend=asyncdispatch")
 
     switch("nimcache", "build"/hostOS/hostCPU)
     # switch("define", "logGC")
     switch("define", "ssl")
-    # switch("passC", "-static-libstdc++")
 
     when Release:
         switch("opt", "speed")
         switch("debugger", "off")
         switch("d", "release")
-        # switch("d", "danger") #maximum speed in cost of ...?
+        # switch("d", "danger") #disables assertions therfore won't work!
 
         switch("passL", " -s")
         switch("debuginfo", "off")
@@ -75,8 +71,7 @@ task build_server, "builds server":
         switch("debugger","off")
         switch("line_dir","off")
 
-        # switch("assertions", "off")
-        # switch("checks", "off")
+
         # switch("passL", " -static")
         # switch("passL", " -static-libgcc")
         # switch("passL", " -static-libstdc++")
