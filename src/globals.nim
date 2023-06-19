@@ -95,26 +95,23 @@ proc init*() =
             else:
                 case p.key:
                     of "lport":
-                        block decide:
-                            try:
-                                listen_port = parseInt(p.val)
-                            except : #multi port
-                                when defined(windows) or defined(android):
-                                    echo "multi listen port unsupported for windows."
+                        try:
+                            listen_port = parseInt(p.val)
+                        except : #multi port
+                            when defined(windows) or defined(android):
+                                echo "multi listen port unsupported for windows."
+                                quit(-1)
+                            else:
+                                if not iptablesInstalled():
+                                    echo "multi listen port requires iptables to be installed."
                                     quit(-1)
-                                else:
-                                    if not iptablesInstalled():
-                                        echo "multi listen port requires iptables to be installed."
-                                        quit(-1)
+                                multi_port = true
+                                let port_range = p.val.split('-')
+                                assert port_range.len == 2 , "Invalid listen port range. !"
+                                listen_port = 0
+                                pmin = max(1,port_range[0].parseInt)
+                                pmax = min(65535,port_range[1].parseInt)
 
-                                    multi_port = true
-                                    let port_range = p.val.split('-')
-                                    assert port_range.len == 2 , "Invalid listen port range. !"
-                                    listen_port = 0
-                                    let pmin = max(1,port_range[0].parseInt)
-                                    let pmax = min(65535,port_range[1].parseInt)
-
-                        listen_port = parseInt(p.val)
                         print listen_port
                     of "toip":
                         next_route_addr = (p.val)

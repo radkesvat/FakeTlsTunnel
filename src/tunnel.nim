@@ -198,7 +198,8 @@ proc start*(){.async.} =
                     echo "multiport failure getting origin port. !"
                     continue
                 copyMem(addr origin_port,addr pbuf[2],2)
-            
+
+                con.port = origin_port
                 if globals.log_conn_create: print "Connected client: ", address , " : ", origin_port
             else:
                 if globals.log_conn_create: print "Connected client: ", address
