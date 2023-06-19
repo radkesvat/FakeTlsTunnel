@@ -17,7 +17,7 @@ const log_conn_destory* = true
 # [Connection]
 var trust_time*: uint = 3 #secs
 var pool_size*: uint = 16 #secs
-var max_idle_time*:uint = 1000 #secs (default TCP RFC is 3600)
+var max_idle_time*:uint = 120 #secs (default TCP RFC is 3600)
 const mux*: bool = false
 const socket_buffered* = false
 const chunk_size* = 4000
@@ -66,7 +66,7 @@ proc init*() =
                     of "tunnel":
                         mode = RunMode.tunnel
                         print mode
-                     of "ufw":
+                    of "ufw":
                         disable_ufw = true
                     else:
                         echo "specify mode (--tunnel or --server)"
