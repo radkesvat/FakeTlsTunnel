@@ -1,9 +1,12 @@
-import std/[asyncdispatch, strformat, strutils, net, tables, random]
+import std/[asyncdispatch, nativesockets, strformat, strutils, net, tables, random]
 import overrides/[asyncnet]
 import times, print, connection, pipe
 from globals import nil
 
-
+when defined(windows):
+    from winlean import getSockOpt
+else:
+    from posix import getSockOpt
 
 type
     TunnelConnectionPoolContext = object
@@ -47,13 +50,14 @@ proc ssl_connect(con: Connection, ip: string, port: int, sni: string){.async.} =
     prepareMutation(random_trust_data)
     copyMem(unsafeAddr random_trust_data[0], unsafeAddr globals.sh1.uint32, 4)
     copyMem(unsafeAddr random_trust_data[4], unsafeAddr globals.sh2.uint32, 4)
-    copyMem(unsafeAddr random_trust_data[8], unsafeAddr con.id, 4)
+    copyMem(unsafeAddr random_trust_data[8], unsafeAddr con.port, 4)
+    copyMem(unsafeAddr random_trust_data[12], unsafeAddr con.id, 4)
 
     await con.socket.send(random_trust_data)
     con.trusted = TrustStatus.yes
 
 
-proc poolFrame(count : uint = 0) =
+proc poolFrame(count: uint = 0){.gcsafe.} =
     proc create() =
         var con = newConnection(address = globals.next_route_addr)
         var fut = ssl_connect(con, globals.next_route_addr, globals.next_route_port, globals.final_target_domain)
@@ -65,10 +69,10 @@ proc poolFrame(count : uint = 0) =
                 if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
                 context.outbound.register con
         )
-        
+
 
     var i = context.outbound.connections.len()
-    while i.uint32 < (if count == 0 :globals.pool_size else: count):
+    while i.uint32 < (if count == 0: globals.pool_size else: count):
         try:
             create()
             inc i
@@ -117,7 +121,8 @@ proc processConnection(client: Connection) {.async.} =
         remote = context.outbound.grab()
         if remote != nil:
             if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
-            poolFrame()
+            callSoon do: poolFrame()
+
             asyncCheck processRemote()
             return
 
@@ -126,12 +131,12 @@ proc processConnection(client: Connection) {.async.} =
 
         if remote != nil:
             if globals.log_conn_create: echo &"[createNewCon][Succ] grabbed a connection"
-            poolFrame()
+            callSoon do: poolFrame()
             asyncCheck processRemote()
         else:
-            
+
             if globals.log_conn_destory: echo &"[createNewCon][Error] left without connection, closes forcefully."
-            poolFrame(1)
+            callSoon do: poolFrame(1)
             client.close()
 
 
@@ -164,19 +169,39 @@ proc processConnection(client: Connection) {.async.} =
         print getCurrentExceptionMsg()
 
 
+
+
 proc start*(){.async.} =
+    var pbuf = newString(len = 16)
+
     proc start_server(){.async.} =
 
         context.listener = newConnection(address = "This Server")
         context.listener.socket.setSockOpt(OptReuseAddr, true)
         context.listener.socket.bindAddr(globals.listen_port.Port, globals.listen_addr)
+        if globals.multi_port:
+            globals.listen_port = getSockName(context.listener.socket.getFd().SocketHandle).int
+            echo "Multi port mode !"
+            globals.createIptablesRules()
+
         echo &"Started tcp server... {globals.listen_addr}:{globals.listen_port}"
         context.listener.socket.listen()
 
         while true:
             let (address, client) = await context.listener.socket.acceptAddr()
             var con = newConnection(client, address)
-            if globals.log_conn_create: print "Connected client: ", address
+            if globals.multi_port:
+                var origin_port:cushort
+                var size = 16.SockLen
+                if getSockOpt(con.socket.getFd().SocketHandle, cint(globals.SOL_IP), cint(globals.SO_ORIGINAL_DST),
+                addr(pbuf[0]), addr(size)) < 0'i32:
+                    echo "multiport failure getting origin port. !"
+                    continue
+                copyMem(addr origin_port,addr pbuf[2],2)
+            
+                if globals.log_conn_create: print "Connected client: ", address , " : ", origin_port
+            else:
+                if globals.log_conn_create: print "Connected client: ", address
 
             asyncCheck processConnection(con)
 

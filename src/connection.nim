@@ -15,7 +15,8 @@ type
         socket*: AsyncSocket
         estabilished*: bool
         isfakessl*:bool
-
+        port*:uint32
+        
     Connections* = object
         connections*: Table[uint32, Connection]
 

@@ -16,23 +16,23 @@ var context = ServerConnectionPoolContext()
 
 
 
-proc monitorData(data: string): tuple[trust: bool, id: uint32] =
-    var id: uint32
+proc monitorData(data: string): tuple[trust: bool, port: uint32] =
+    var port: uint32
     try:
-        if len(data) < 12: return (false, id)
+        if len(data) < 16: return (false, port)
         var sh1_c: uint32
         var sh2_c: uint32
 
         copyMem(unsafeAddr sh1_c, unsafeAddr data[0], 4)
         copyMem(unsafeAddr sh2_c, unsafeAddr data[4], 4)
-        copyMem(unsafeAddr id, unsafeAddr data[8], 4)
+        copyMem(unsafeAddr port, unsafeAddr data[8], 4)
 
         let chk1 = sh1_c == globals.sh1
         let chk2 = sh2_c == globals.sh2
 
-        return (chk1 and chk2, id)
+        return (chk1 and chk2, port)
     except:
-        return (false, id)
+        return (false, port)
 
 
 
@@ -121,15 +121,19 @@ proc processConnection(client_a: Connection) {.async.} =
             if (remote.isTrusted()) and (not remote.estabilished):
                 remote.estabilished = true
                 try:
-                    await remote.socket.connect(globals.next_route_addr, globals.next_route_port.Port)
+                    await remote.socket.connect(globals.next_route_addr, client.port.Port)
                     asyncCheck proccessRemote()
                 except:
                     break
 
 
             if client.trusted == TrustStatus.pending:
-                var (trust, id) = monitorData(data)
+                var (trust, port) = monitorData(data)
                 if trust:
+                    if globals.multi_port:
+                        client.port = port
+                    else:
+                        client.port = globals.next_route_port.uint32
                     client.trusted = TrustStatus.yes
                     print "Fake Handshake Complete !"
                     remote.close()
