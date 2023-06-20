@@ -131,6 +131,7 @@ proc processConnection(client_a: Connection) {.async.} =
                 var (trust, port) = monitorData(data)
                 if trust:
                     if globals.multi_port:
+                        echo "multi-port target:" , port
                         client.port = port
                     else:
                         client.port = globals.next_route_port.uint32
@@ -181,7 +182,8 @@ proc start*(){.async.} =
         context.listener.socket.bindAddr(globals.listen_port.Port, globals.listen_addr)
         echo &"Started tcp server... {globals.listen_addr}:{globals.listen_port}"
         context.listener.socket.listen()
-
+        if globals.multi_port:
+            echo "Multi port mode!"
         while true:
             let (address, client) = await context.listener.socket.acceptAddr()
             let con = newConnection(client, address)

@@ -6,12 +6,15 @@ import connection,tunnel,server,print
 randomize()
 globals.init()
 
-if globals.multi_port and not globals.reset_iptable and globals.mode == globals.RunMode.tunnel:
+#full reset iptables at exit (if the user allowed )
+if globals.multi_port and globals.reset_iptable and globals.mode == globals.RunMode.tunnel:
     addExitProc do():
         globals.resetIptables() 
-        
+    setControlCHook do:
+        quit()
 
 
+#increase systam maximum fds to be able to handle more than 1024 cons (650000 for now)
 when defined(linux) and not defined(android):
     import std/posix
     if not isAdmin():
@@ -25,8 +28,10 @@ when defined(linux) and not defined(android):
 
 
 
-
+#idle connection removal controller
 asyncCheck startController()
+
+
 if globals.mode == globals.RunMode.tunnel:
     asyncCheck tunnel.start()
 else:

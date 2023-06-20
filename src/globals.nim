@@ -25,9 +25,9 @@ const chunk_size* = 4000
 
 # [Routes]
 const listen_addr* = "0.0.0.0"
-var listen_port* = -1
+var listen_port*:uint32 = 0
 var next_route_addr* = ""
-var next_route_port* = -1
+var next_route_port*:uint32 = 0
 var final_target_domain* = ""
 var final_target_ip*: string
 const final_target_port* = 443 # port of the sni host (443 for tls handshake)
@@ -55,8 +55,10 @@ proc iptablesInstalled(): bool =
 
 
 proc resetIptables*()=
-        assert 0 == execCmdEx("iptables -t nat -F").exitCode
-        assert 0 == execCmdEx("iptables -t nat -X").exitCode
+    echo "reseting iptable nat"
+    assert 0 == execCmdEx("iptables -t nat -F").exitCode
+    assert 0 == execCmdEx("iptables -t nat -X").exitCode
+
 proc createIptablesRules*()=
     if reset_iptable:resetIptables()
     assert 0 == execCmdEx(&"""iptables -t nat -A PREROUTING -p tcp --dport {pmin}:{pmax} -j REDIRECT --to-port {listen_port}""").exitCode
@@ -96,7 +98,7 @@ proc init*() =
                 case p.key:
                     of "lport":
                         try:
-                            listen_port = parseInt(p.val)
+                            listen_port = parseInt(p.val).uint32
                         except : #multi port
                             when defined(windows) or defined(android):
                                 echo "multi listen port unsupported for windows."
@@ -106,18 +108,20 @@ proc init*() =
                                     echo "multi listen port requires iptables to be installed."
                                     quit(-1)
                                 multi_port = true
+                                listen_port = 0 # will take a random port
+                                pool_size = max(2.uint ,pool_size div 2.uint)
                                 let port_range = p.val.split('-')
                                 assert port_range.len == 2 , "Invalid listen port range. !"
-                                listen_port = 0
                                 pmin = max(1,port_range[0].parseInt)
                                 pmax = min(65535,port_range[1].parseInt)
+                                assert pmax-pmin > 0, "port range is invalid!  use --lport:min-max"
 
                         print listen_port
                     of "toip":
                         next_route_addr = (p.val)
                         print next_route_addr
                     of "toport":
-                        next_route_port = parseInt(p.val)
+                        next_route_port = parseInt(p.val).uint32
                         print next_route_port
                     of "sni":
                         final_target_domain = (p.val)
@@ -138,14 +142,14 @@ proc init*() =
 
     var exit = false
 
-    if listen_port == -1:
+    if listen_port == 0 and not multi_port:
         echo "specify the listen prot --lport:{port}"
         exit = true
 
     if next_route_addr.isEmptyOrWhitespace():
         echo "specify the next ip for routing --toip:{ip}"
         exit = true
-    if next_route_port == -1:
+    if next_route_port == 0:
         echo "specify the port of the next ip for routing --toport:{port}"
         exit = true
 
@@ -158,6 +162,7 @@ proc init*() =
 
     if exit: quit(-1)
 
+    
     final_target_ip = resolveIPv4(final_target_domain)
     print "\n"
     self_ip = $(getPrimaryIPAddr(dest = parseIpAddress("8.8.8.8")))
