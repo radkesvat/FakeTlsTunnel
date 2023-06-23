@@ -24,6 +24,7 @@ proc ssl_connect(con: Connection, ip: string, client_origin_port: uint32, sni: s
     var fc = 0
     while true:
         if fc > 6:
+            con.close()
             raise newException(ValueError, "Request Timed Out!")
         try:
             await con.socket.connect(ip, con.port.Port, sni = sni)
@@ -73,8 +74,9 @@ proc poolFrame(client_port:uint32 , count: uint = 0){.gcsafe.} =
         )
 
 
-    var i = context.outbound[client_port].connections.len().uint
+    
     if count == 0:
+        var i = context.outbound[client_port].connections.len().uint
         if i < globals.pool_size div 2:
             create()
             create()
