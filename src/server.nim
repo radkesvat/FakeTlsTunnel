@@ -45,13 +45,13 @@ proc processConnection(client_a: Connection) {.async.} =
     proc proccessClient() {.async.}
 
     proc remoteTrusted(): Future[Connection]{.async.} =
-        var new_remote = newConnection(address = globals.next_route_addr)
+        var new_remote = newConnection()
         new_remote.trusted = TrustStatus.yes
         new_remote.estabilished = false
         return new_remote
 
     proc remoteUnTrusted(): Future[Connection]{.async.} =
-        var new_remote = newConnection(address = globals.final_target_ip)
+        var new_remote = newConnection()
         new_remote.trusted = TrustStatus.no
         await new_remote.socket.connect(globals.final_target_ip, globals.final_target_port.Port)
         if globals.log_conn_create: echo "connected to ", globals.final_target_ip, ":", $globals.final_target_port
@@ -66,7 +66,7 @@ proc processConnection(client_a: Connection) {.async.} =
             remote.close()
 
     proc proccessRemote() {.async.} =
-        var data = ""
+        var data =  newStringOfCap(cap = 1500)
         while not remote.isClosed:
             try:
                 data = await remote.recv(globals.chunk_size)
@@ -108,7 +108,7 @@ proc processConnection(client_a: Connection) {.async.} =
 
 
     proc proccessClient() {.async.} =
-        var data = ""
+        var data =  newStringOfCap(cap = 1500)
         while not client.isClosed:
             try:
                 data = await client.recv(globals.chunk_size)
@@ -177,7 +177,7 @@ proc processConnection(client_a: Connection) {.async.} =
 proc start*(){.async.} =
     proc start_server(){.async.} =
 
-        context.listener = newConnection(address = "This Server")
+        context.listener = newConnection()
         context.listener.socket.setSockOpt(OptReuseAddr, true)
         context.listener.socket.bindAddr(globals.listen_port.Port, globals.listen_addr)
         echo &"Started tcp server... {globals.listen_addr}:{globals.listen_port}"
@@ -186,7 +186,7 @@ proc start*(){.async.} =
             echo "Multi port mode!"
         while true:
             let (address, client) = await context.listener.socket.acceptAddr()
-            let con = newConnection(client, address)
+            let con = newConnection(client)
             if globals.log_conn_create: print "Connected client: ", address
             asyncCheck processConnection(con)
 
