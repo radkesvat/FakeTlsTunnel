@@ -308,6 +308,11 @@ proc connect*(socket: AsyncSocket, address: string, port: Port, sni:string = "")
   ## Returns a `Future` which will complete when the connection succeeds
   ## or an error occurs.
   await connect(socket.fd.AsyncFD, address, port, socket.domain)
+  if socket.closed:
+      raise newException(EOFError,
+        "Socket is closed before full connection establishment")
+
+
   if socket.isSsl:
     when defineSsl:
       if sni != "":
