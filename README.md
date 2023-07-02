@@ -6,6 +6,8 @@
 
 نسخه مالتی پورت منتشر شد حتما اول [اینجا](https://github.com/radkesvat/FakeTlsTunnel/blob/master/multiport.md) را مطالعه کنید بعد اقدام کنید.
 
+برای اجرا بر روی روتر [اینجا](https://github.com/radkesvat/FakeTlsTunnel/blob/master/asuswrt-merlin.md) را مطالعه کنید
+
 # مقدمه کلی
 
 این برنامه به طور کلی برای عبور ترافیک با دامنه(sni) دلخواه برای تونل و کانفیگ های tcp base مثل  open vpn-trojan-vmess-vless انجام شده برای دوستانی که تونل کار میکنند ؛ یه نسخه از این برنامه روی سرور تونل باید اجرا کنید
