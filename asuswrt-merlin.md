@@ -37,50 +37,42 @@ Administration > Firmware Upgrade
 ext4  
 داشته باشه  
 # چطوری نصبش کنیم؟
-فلش مموری رو به روتر وصل کنید و کامندهای زیر رو بزنید  
+فلش مموری رو به روتر وصل کنید و این دستور را وارد کنید  
 ```bash
-ssh admin@192.168.50.1
-wget https://raw.githubusercontent.com/RMerl/asuswrt-merlin.ng/a46283c8cbf2cdd62d8bda231c7a79f5a2d3b889/release/src/router/others/entware-setup.sh
-chmod +x entware-setup.sh
-./entware-setup.sh
+# Asuswrt-Merlin Terminal Menu
+amtm
 ```
-بعد از نصب بهتره یه ریبوت انجام بدید  
-```bash
-reboot
+یک منو برای شما باز میشود، دستور زیر را تایپ و سپس اینتر را بزنید تا ستاپ نصب لانچ شود  
 ```
-این آموزش خیلی خلاصه بود  
-آموزش مفصل نصبش در اینجا گفته شده  
-[**Setup Entware on Asuswrt-merlin**](https://gist.github.com/1951FDG/3cada1211df8a59a95a8a71db6310299)  
-در صورتی که نصب درست انجام شده باشه روی فلش یه فولدر باید ایجاد شده باشه با نام  
-entware  
-که این فولدر به مسیر  
-`/opt`  
-لینک شده  
-لیست ابزارهای موجود  
-[**aarch64-k3.10**](https://bin.entware.net/aarch64-k3.10)  
-که شامل آخرین ورژن ها هست و در صورت انتشار ورژن جدید نسخه قبلی را در این مسیر میتوانید پیدا کنید  
-[**aarch64-k3.10/archive**](https://bin.entware.net/aarch64-k3.10/archive)  
+ep
+```
+وارد یک ستاپ میشوید که باید به چند سوال ساده پاسخ دهید  
+این ستاپ بصورت آنلاین پکیج ها را دریافت میکند، ممکنه به همین علت وسط کار متوقف بشید (احتمالا مکانیزیم سعی مجدد در صورت خطا نداره!)  
+اگر این حالت پیش اومد ستاپ رو کنسل کنید و ابتدا لینک ایجاد شده را پاک کنید  
+```
+rm /tmp/opt
+```
+حالا ستاپ نصب رو دوباره استارت کنید  
+در صورت نصب موفق دستور زیر باید محتوای فایل را چاپ کند  
+```
+# /opt/etc/passwd -> /etc/passwd
+cat /opt/etc/passwd
+```
+وارد دایرکتوری زیر بشید
+```
+cd /opt/home
+``` 
 # نصب ابزارهای مورد نیاز
 خوب شما الان یک پکیج منیجر دارید با نام  
 opkg  
-برای نصب یک پکیج بهتره ابتدا اون رو دانلود و سپس نصب کنید  
+ابزارهای مورد نیاز را نصب کنید  
 ```bash
-wget https://bin.entware.net/aarch64-k3.10/tar_1.34-4_aarch64-3.10.ipk
-wget https://bin.entware.net/aarch64-k3.10/openssl-util_3.0.8-9_aarch64-3.10.ipk
-wget https://bin.entware.net/aarch64-k3.10/curl_8.1.1-1_aarch64-3.10.ipk
-wget https://bin.entware.net/aarch64-k3.10/git_2.39.2-1_aarch64-3.10.ipk
-wget https://bin.entware.net/aarch64-k3.10/gcc_8.4.0-5b_aarch64-3.10.ipk
-wget https://bin.entware.net/aarch64-k3.10/screen_4.8.0-2_aarch64-3.10.ipk
-```
-ممکنه ورژن جدید منتشر شده باشه و کار نکن لینک ها که میتونید به لیست مراجعه کنید و لینک درست رو بزنید  
-حالا نصب کنید  
-```bash
-opkg install tar_1.34-4_aarch64-3.10.ipk
-opkg install openssl-util_3.0.8-9_aarch64-3.10.ipk
-opkg install curl_8.1.1-1_aarch64-3.10.ipk
-opkg install git_2.39.2-1_aarch64-3.10.ipk
-opkg install gcc_8.4.0-5b_aarch64-3.10.ipk
-opkg install screen_4.8.0-2_aarch64-3.10.ipk
+opkg install tar
+opkg install openssl-util
+opkg install curl
+opkg install git
+opkg install gcc
+opkg install screen
 ```
 # Nim compiler
 یک ابزار دیگه مونده برای نصب  
@@ -89,14 +81,11 @@ opkg install screen_4.8.0-2_aarch64-3.10.ipk
 ```bash
 wget https://github.com/nim-lang/nightlies/releases/download/latest-version-1-6/linux_arm64.tar.xz
 /opt/bin/tar -xvf linux_arm64.tar.xz
+mv nim-x.x.x nim
 ```
-فولدر اون رو به یک مکان مناسب منتقل کنید، مثلا  
+برای اجرای کامپایلر باید دایرکتوری شامل فایل اجرایی اون رو به متغییر سیستمی آدرس اضافه کنید  
 ```bash
-mv nim /opt/usr/bin
-```
-و سپس به متغییر سیستمی آدرس اضافه کنید  
-```bash
-export PATH="$PATH:/opt/usr/bin/nim/bin"
+export PATH="$PATH:/opt/home/nim/bin"
 ```
 # Github ssh key
 برای کلون کردن پروژه ابتدا باید یک کلید بسازید  
@@ -107,7 +96,7 @@ dropbearkey -t rsa -f github
 # Clone repo
 پروژه رو کلون کنید و وارد اون بشید  
 ```bash
-GIT_SSH_COMMAND='ssh -i /absolute/github -o IdentitiesOnly=yes' git clone git@github.com:radkesvat/FakeTlsTunnel.git
+GIT_SSH_COMMAND='ssh -i /opt/home/github -o IdentitiesOnly=yes' git clone git@github.com:radkesvat/FakeTlsTunnel.git
 cd FakeTlsTunnel
 ```
 
@@ -129,7 +118,7 @@ dist
 برای اینکه بتونید تونل رو اجرا کنید ولی از ترمینال خارج بشید  
 ```bash
 screen -S ftt
-nohup /absolute/FTT ... > /dev/null &
+nohup /opt/home/FakeTlsTunnel/dist/FTT ... > /dev/null &
 ```
 برای خروج از این سشن کلیدهای ترکیبی  
 Ctrl+A, D  
