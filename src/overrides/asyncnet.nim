@@ -125,11 +125,11 @@ type
     bufLen: int      # current length of buffer
     isSsl*: bool
     when defineSsl:
-      sslHandle: SslPtr
-      sslContext: SslContext
-      bioIn: BIO
-      bioOut: BIO
-      sslNoShutdown: bool
+      sslHandle*: SslPtr
+      sslContext*: SslContext
+      bioIn*: BIO
+      bioOut*: BIO
+      sslNoShutdown*: bool
     domain: Domain
     sockType: SockType
     protocol: Protocol
@@ -214,7 +214,7 @@ proc newAsyncSocket*(domain, sockType, protocol: cint,
                           Protocol(protocol), buffered, inheritable)
 
 when defineSsl:
-  proc getSslError(socket: AsyncSocket, err: cint): cint =
+  proc getSslError*(socket: AsyncSocket, err: cint): cint =
     assert socket.isSsl
     assert err < 0
     var ret = SSL_get_error(socket.sslHandle, err.cint)
@@ -232,7 +232,7 @@ when defineSsl:
       raiseSSLError()
     else: raiseSSLError("Unknown Error")
 
-  proc sendPendingSslData(socket: AsyncSocket,
+  proc sendPendingSslData*(socket: AsyncSocket,
       flags: set[SocketFlag]) {.async.} =
     let len = bioCtrlPending(socket.bioOut)
     if len > 0:
@@ -244,7 +244,7 @@ when defineSsl:
       data.setLen(read)
       await socket.fd.AsyncFD.send(data, flags)
 
-  proc appeaseSsl(socket: AsyncSocket, flags: set[SocketFlag],
+  proc appeaseSsl*(socket: AsyncSocket, flags: set[SocketFlag],
                   sslError: cint): owned(Future[bool]) {.async.} =
     ## Returns `true` if `socket` is still connected, otherwise `false`.
     result = true
@@ -265,7 +265,7 @@ when defineSsl:
     else:
       raiseSSLError("Cannot appease SSL.")
 
-  template sslLoop(socket: AsyncSocket, flags: set[SocketFlag],
+  template sslLoop*(socket: AsyncSocket, flags: set[SocketFlag],
                    op: untyped) =
     var opResult {.inject.} = -1.cint
     while opResult < 0:
