@@ -4,7 +4,7 @@
 
 با اجرای دوباره دستور نصب برنامه ؛ آپدیت کنید.
 
-نسخه مالتی پورت منتشر شد حتما اول [اینجا](https://github.com/radkesvat/FakeTlsTunnel/blob/master/multiport.md) را مطالعه کنید بعد اقدام کنید.
+برای اجرا به صورت مالتی پورت [اینجا](https://github.com/radkesvat/FakeTlsTunnel/blob/master/multiport.md) را مطالعه کنید.
 
 برای اجرا بر روی روتر [اینجا](https://github.com/radkesvat/FakeTlsTunnel/blob/master/asuswrt-merlin.md) را مطالعه کنید
 
