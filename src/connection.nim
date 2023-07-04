@@ -14,7 +14,6 @@ type
         trusted*: TrustStatus       #when fake handshake perfromed
         socket*: AsyncSocket        #wrapped asyncsocket 
         estabilished*: bool         #connection has started
-        isfakessl*:bool             #broken ssl
         port*:uint32                #the port the socket points to
 
     Connections* = object
@@ -52,14 +51,10 @@ template recv*(con: Connection, data: SomeInteger): untyped =
 template isClosed*(con: Connection): bool = con.socket.isClosed()
 
 
-proc prepairClose(con: Connection) = 
-    if con.isfakessl:
-        if con.isTrusted:
-            con.socket.isSsl = true
+
 
 proc close*(con: Connection) = 
     if not con.isClosed():
-        prepairClose(con)
         con.socket.close()
 
         let i = allConnections.find(con)
@@ -97,18 +92,17 @@ proc startController*(){.async.}=
         et = epochTime().uint
         await sleepAsync(1000)
 
+
         allConnections.keepIf(
             proc(x: Connection):bool =
                 if x.action_start_time != 0:
                     if et - x.action_start_time > globals.max_idle_time :
-                        prepairClose(x)
                         x.socket.close()
                         if globals.log_conn_destory: echo "[Controller] closed a idle connection"
                         return false
 
                 if x.register_start_time != 0:
                     if et - x.register_start_time > globals.max_pool_unused_time :
-                        prepairClose(x)
                         x.socket.close()
                         if globals.log_conn_destory: echo "[Controller] closed a unused connection"
                         return false
