@@ -120,7 +120,7 @@ proc init*() =
                                 assert port_range.len == 2 , "Invalid listen port range. !"
                                 pmin = max(1,port_range[0].parseInt)
                                 pmax = min(65535,port_range[1].parseInt)
-                                assert pmax-pmin > 0, "port range is invalid!  use --lport:min-max"
+                                assert pmax-pmin >= 0, "port range is invalid!  use --lport:min-max"
 
                         print listen_port
                     of "toip":
