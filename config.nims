@@ -38,7 +38,7 @@ task build_server, "builds server":
     switch("nimblePath", nimble_path&"/pkgs")
 
     var output = output_dir_target /  output_file_name
-    switch("mm", "refc")
+    switch("mm", "orc")
     switch("warning", "BareExcept:off")
     # switch("define", "useMalloc")
 
