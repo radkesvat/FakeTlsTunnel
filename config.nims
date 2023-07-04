@@ -38,16 +38,16 @@ task build_server, "builds server":
     switch("nimblePath", nimble_path&"/pkgs")
 
     var output = output_dir_target /  output_file_name
-    switch("mm", "orc")
+    switch("mm", "refc")
     switch("warning", "BareExcept:off")
-    # switch("cc", "clang")
+    # switch("define", "useMalloc")
 
     switch("path", src_dir)
     switch("path", libs_dir)
     switch("passC", "-I "&libs_dir&"/hwinfo/include/")
 
     switch("nimcache", "build"/hostOS/hostCPU)
-    # switch("define", "logGC")
+    # switch("define", "useOpenssl3")
     switch("define", "ssl")
 
     when Release:
@@ -70,8 +70,10 @@ task build_server, "builds server":
         switch("linetrace","off")
         switch("debugger","off")
         switch("line_dir","off")
-
-
+        
+        # switch("passL", " -lcrypto")
+        # switch("passL", " -lssl")
+        # switch("dynlibOverride","ssl")
         # switch("passL", " -static")
         # switch("passL", " -static-libgcc")
         # switch("passL", " -static-libstdc++")
