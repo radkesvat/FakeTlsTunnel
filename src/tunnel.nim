@@ -1,6 +1,6 @@
 import std/[asyncdispatch, nativesockets, strformat, strutils, net, tables, random, endians]
 import overrides/[asyncnet]
-import times, print, connection, pipe
+import times, print, connection, pipe, openssl
 from globals import nil
 
 when defined(windows):
@@ -15,20 +15,22 @@ type
         outbound: Table[uint32, Connections]
 
 var context = TunnelConnectionPoolContext()
-let ssl_ctx = newContext(verifyMode = CVerifyPeer)
+var ssl_ctx = newContext(verifyMode = CVerifyPeer)
 
 
 proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: string){.async.} =
-    wrapSocket(ssl_ctx, con.socket)
-    con.isfakessl = true
+    con.socket.close()
     var fc = 0
+    
     while true:
         if fc > 3:
             con.close()
             raise newException(ValueError, "[SslConnect] could not connect, all retires failed")
     
-        var fut = con.socket.connect(ip, con.port.Port, sni = sni)
-        var timeout = withTimeout(fut, 6000)
+        # var fut = con.socket.connect(ip, con.port.Port, sni = sni)
+        var fut = asyncnet.dial(ip, Port(con.port),buffered = false)
+          
+        var timeout = withTimeout(fut, 3000)
         yield timeout
         if timeout.failed():
             inc fc
@@ -37,16 +39,49 @@ proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: st
             await sleepAsync(min(1000, fc*200))
             continue
         if timeout.read() == true:
+            con.socket = fut.read()
             break
         if timeout.read() == false:
+            con.close()
             raise newException(ValueError, "[SslConnect] dial timed-out")
-            
- 
 
-    if globals.log_conn_create: print "ssl socket conencted"
+       
+    try:
+        
+        ssl_ctx.wrapConnectedSocket(
+            con.socket, handshakeAsClient, sni)
+        let flags = {SocketFlag.SafeDisconn}
+
+        block handshake:
+            sslLoop(con.socket, flags, sslDoHandshake(con.socket.sslHandle))
+
+        block free:
+            let res =
+                # Don't call SSL_shutdown if the connection has not been fully
+                # established, see:
+                # https://github.com/openssl/openssl/issues/710#issuecomment-253897666
+                if not con.socket.sslNoShutdown and SSL_in_init(con.socket.sslHandle) == 0:
+                ErrClearError()
+                SSL_shutdown(con.socket.sslHandle)
+                else:
+                0
+            SSL_free(con.socket.sslHandle)
+
+            if res == 0:
+                discard
+            elif res != 1:
+                raiseSSLError()
+            
+            
+    except:
+        echo "[SslConnect] handshake error!"
+        con.close()
+        raise getCurrentException()
+
+    if globals.log_conn_create: print "[SslConnect] conencted !"
 
     # let to_send = &"GET / HTTP/1.1\nHost: {sni}\nAccept: */*\n\n"
-    # await socket.send(to_send)  [not required ...]
+    # await con.socket.send(to_send)  
 
     #now we use this socket as a normal tcp data transfer socket
     con.socket.isSsl = false
@@ -79,10 +114,7 @@ proc poolFrame(client_port: uint32, count: uint = 0){.gcsafe.} =
         fut.addCallback(
             proc() {.gcsafe.} =      
                 if fut.failed:
-                    try:
-                        con.close()
-                    except:
-                        if globals.log_conn_error: echo fut.error.msg
+                    if globals.log_conn_error: echo fut.error.msg
                 else:
                     if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
                     context.outbound[client_port].register con
@@ -107,6 +139,7 @@ proc poolFrame(client_port: uint32, count: uint = 0){.gcsafe.} =
 proc processConnection(client_a: Connection) {.async.} =
     var client: Connection = client_a
     var remote: Connection
+    var data =  ""
 
     var closed = false
     proc close() =
@@ -120,7 +153,6 @@ proc processConnection(client_a: Connection) {.async.} =
 
 
     proc processRemote() {.async.} =
-        var data =  newStringOfCap(cap = 1500)
 
         while (not remote.isClosed) and (not client.isClosed):
             try:
@@ -160,8 +192,6 @@ proc processConnection(client_a: Connection) {.async.} =
 
 
     proc processClient() {.async.} =
-        var data =  newStringOfCap(cap = 1500)
-
         while (not client.isClosed) and (not remote.isClosed):
             try:
                 data = await client.recv(globals.chunk_size)
