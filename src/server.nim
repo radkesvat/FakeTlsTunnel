@@ -66,7 +66,7 @@ proc processConnection(client_a: Connection) {.async.} =
             remote.close()
 
     proc proccessRemote() {.async.} =
-        var data =  newStringOfCap(cap = 1500)
+        var data =  ""
         while not remote.isClosed:
             try:
                 data = await remote.recv(globals.chunk_size)
@@ -108,7 +108,7 @@ proc processConnection(client_a: Connection) {.async.} =
 
 
     proc proccessClient() {.async.} =
-        var data =  newStringOfCap(cap = 1500)
+        var data =  ""
         while not client.isClosed:
             try:
                 data = await client.recv(globals.chunk_size)
