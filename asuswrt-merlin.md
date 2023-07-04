@@ -117,19 +117,61 @@ dist
 # Screen
 برای اینکه بتونید تونل رو اجرا کنید ولی از ترمینال خارج بشید  
 ```bash
-screen -S ftt
-nohup /opt/home/FakeTlsTunnel/dist/FTT ... > /dev/null &
+nano /opt/ftt
 ```
-برای خروج از این سشن کلیدهای ترکیبی  
-Ctrl+A, D  
-رو میزنید، برای دیدن لیست سشن ها
+محتوای زیر در فایل قرار بدید
 ```bash
-screen -ls
+#!/bin/sh
+
+SESSION_NAME="FTT"
+FTT="/opt/home/FakeTlsTunnel/dist/FTT"
+FROM_PORT="443"
+SERVER="88.1.2.3"
+TO_PORT="443"
+SNI="github.com"
+PASS="123ab"
+
+toggle() {
+  SESSION=$(screen -ls | grep $SESSION_NAME)
+  if [ -z "$SESSION" ]
+  then
+    echo "Starting $SESSION_NAME"
+    screen -dmS $SESSION_NAME $0 start
+  else
+    echo "Terminate $SESSION_NAME"
+    $0 stop
+  fi
+}
+
+start() {
+  $FTT --tunnel --lport:$FROM_PORT --toip:$SERVER --toport:$TO_PORT --sni:$SNI --password:$PASS
+}
+
+stop () {
+  screen -S $SESSION_NAME -X quit
+}
+
+if [ -z "$1" ]
+then
+  toggle
+elif [[ "$1" == "start" ]]
+then
+  start
+elif [[ "$1" == "stop" ]]
+then
+  stop
+fi
 ```
-و برای بازگشت به سشن  
+مقادیر متغییرها رو بر اساس کانفیگ خودتون تغییر بدید و سپس فایل رو ذخیره کنید
 ```bash
-screen -r ftt
+chmod +x /opt/ftt
 ```
+حالا اسکریپت قابل اجرا هست  
+با وارد کردن دستور
+```
+/opt/ftt
+```
+تانل اجرا میشود و برای توقف هم دوباره همین دستور را اجرا کنید
 # سخن پایانی
 امیدوارم از این آموزش لذت برده باشید  
 موارد خیلی زیاد بودند و واقعا نمیشد مفصل توضیح داد  
