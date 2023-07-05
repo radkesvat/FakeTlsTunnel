@@ -36,6 +36,7 @@ task build_server, "builds server":
 
     setCommand("c", src_dir&"/main.nim")
     switch("nimblePath", nimble_path&"/pkgs")
+    # switch("define", "nimNoGetRandom") # asuswrt-merlin
 
     var output = output_dir_target /  output_file_name
     # switch("mm", "orc")
