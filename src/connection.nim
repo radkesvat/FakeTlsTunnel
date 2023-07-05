@@ -112,7 +112,7 @@ proc startController*(){.async.}=
         et = epochTime().uint
         await sleepAsync(1000)
 
-        echo GC_getStatistics()
+        # echo GC_getStatistics()
         allConnections.keepIf(
             proc(x: Connection):bool =
                 if x.action_start_time != 0:

@@ -65,8 +65,7 @@
 ##
 ## The following example demonstrates a simple chat server.
 ##
-## .. code-block:: Nim
-##
+##   ```Nim
 ##   import std/[asyncnet, asyncdispatch]
 ##
 ##   var clients {.threadvar.}: seq[AsyncSocket]
@@ -93,22 +92,22 @@
 ##
 ##   asyncCheck serve()
 ##   runForever()
-##
+##   ```
 
 import std/private/since
-import asyncdispatch 
-import nativesockets   
-import os
-import net
-import std/times
+
+when defined(nimPreviewSlimSystem):
+  import std/[assertions, syncio]
+
+import asyncdispatch, nativesockets, net, os
 
 export SOBool
 
 # TODO: Remove duplication introduced by PR #4683.
 
 const defineSsl = defined(ssl) or defined(nimdoc)
-const useNimNetLite = defined(nimNetLite) or defined(freertos) or defined(zephyr)
-
+const useNimNetLite = defined(nimNetLite) or defined(freertos) or defined(zephyr) or
+    defined(nuttx)
 
 when defineSsl:
   import openssl
@@ -117,7 +116,7 @@ type
   # TODO: I would prefer to just do:
   # AsyncSocket* {.borrow: `.`.} = distinct Socket. But that doesn't work.
   AsyncSocketDesc = object
-    fd: SocketHandle
+    fd*: SocketHandle
     closed: bool     ## determines whether this socket has been closed
     isBuffered: bool ## determines whether this socket is buffered.
     buffer: array[0..BufferSize, char]
@@ -133,8 +132,6 @@ type
     domain: Domain
     sockType: SockType
     protocol: Protocol
-
-    
   AsyncSocket* = ref AsyncSocketDesc
 
 proc newAsyncSocket*(fd: AsyncFD, domain: Domain = AF_INET,
@@ -164,10 +161,6 @@ proc newAsyncSocket*(fd: AsyncFD, domain: Domain = AF_INET,
   result.protocol = protocol
   if buffered:
     result.currPos = 0
-
-proc setBuffered*(socket:var AsyncSocket)=
-  socket.isBuffered = true
-  socket.currPos = 0
 
 proc newAsyncSocket*(domain: Domain = AF_INET, sockType: SockType = SOCK_STREAM,
                      protocol: Protocol = IPPROTO_TCP, buffered = true,
@@ -214,7 +207,7 @@ proc newAsyncSocket*(domain, sockType, protocol: cint,
                           Protocol(protocol), buffered, inheritable)
 
 when defineSsl:
-  proc getSslError*(socket: AsyncSocket, err: cint): cint =
+  proc getSslError(socket: AsyncSocket, err: cint): cint =
     assert socket.isSsl
     assert err < 0
     var ret = SSL_get_error(socket.sslHandle, err.cint)
@@ -232,7 +225,7 @@ when defineSsl:
       raiseSSLError()
     else: raiseSSLError("Unknown Error")
 
-  proc sendPendingSslData*(socket: AsyncSocket,
+  proc sendPendingSslData(socket: AsyncSocket,
       flags: set[SocketFlag]) {.async.} =
     let len = bioCtrlPending(socket.bioOut)
     if len > 0:
@@ -244,7 +237,7 @@ when defineSsl:
       data.setLen(read)
       await socket.fd.AsyncFD.send(data, flags)
 
-  proc appeaseSsl*(socket: AsyncSocket, flags: set[SocketFlag],
+  proc appeaseSsl(socket: AsyncSocket, flags: set[SocketFlag],
                   sslError: cint): owned(Future[bool]) {.async.} =
     ## Returns `true` if `socket` is still connected, otherwise `false`.
     result = true
@@ -272,14 +265,17 @@ when defineSsl:
       ErrClearError()
       # Call the desired operation.
       opResult = op
-
+      let err =
+        if opResult < 0:
+          getSslError(socket, opResult.cint)
+        else:
+          SSL_ERROR_NONE
       # Send any remaining pending SSL data.
       await sendPendingSslData(socket, flags)
 
       # If the operation failed, try to see if SSL has some data to read
       # or write.
       if opResult < 0:
-        let err = getSslError(socket, opResult.cint)
         let fut = appeaseSsl(socket, flags, err.cint)
         yield fut
         if not fut.read():
@@ -302,22 +298,18 @@ proc dial*(address: string, port: Port, protocol = IPPROTO_TCP,
   let domain = getSockDomain(asyncFd.SocketHandle)
   result = newAsyncSocket(asyncFd, domain, sockType, protocol, buffered)
 
-proc connect*(socket: AsyncSocket, address: string, port: Port, sni:string = "") {.async.} =
+proc connect*(socket: AsyncSocket, address: string, port: Port) {.async.} =
   ## Connects `socket` to server at `address:port`.
   ##
   ## Returns a `Future` which will complete when the connection succeeds
   ## or an error occurs.
   await connect(socket.fd.AsyncFD, address, port, socket.domain)
-  if socket.closed:
-      raise newException(EOFError,
-        "Socket is closed before full connection establishment")
-
-
   if socket.isSsl:
     when defineSsl:
-      if sni != "":
-        assert isIpAddress(address) #don't allow confusion over this
-        discard SSL_set_tlsext_host_name(socket.sslHandle, sni)
+      if not isIpAddress(address):
+        # Set the SNI address for this connection. This call can fail if
+        # we're not using TLSv1+.
+        discard SSL_set_tlsext_host_name(socket.sslHandle, address)
 
       let flags = {SocketFlag.SafeDisconn}
       sslSetConnectState(socket.sslHandle)
@@ -414,7 +406,8 @@ proc recv*(socket: AsyncSocket, size: int,
   ## to be read then the future will complete with a value of `""`.
   if socket.isBuffered:
     result = newString(size)
-    shallow(result)
+    when not defined(nimSeqsV2):
+      shallow(result)
     let originalBufPos = socket.currPos
 
     if socket.bufLen == 0:
@@ -882,83 +875,83 @@ proc sendTo*(socket: AsyncSocket, address: string, port: Port, data: string,
     else:
       raise newException(IOError, "Couldn't resolve address: " & address)
 
-# proc recvFrom*(socket: AsyncSocket, data: FutureVar[string], size: int,
-#                address: FutureVar[string], port: FutureVar[Port],
-#                flags = {SocketFlag.SafeDisconn}): owned(Future[int])
-#               {.async, since: (1, 3).} =
-#   ## Receives a datagram data from `socket` into `data`, which must be at
-#   ## least of size `size`. The address and port of datagram's sender will be
-#   ## stored into `address` and `port`, respectively. Returned future will
-#   ## complete once one datagram has been received, and will return size of
-#   ## packet received.
-#   ##
-#   ## If an error occurs an OSError exception will be raised.
-#   ##
-#   ## This proc is normally used with connectionless sockets (UDP sockets).
-#   ##
-#   ## **Notes**
-#   ## * `data` must be initialized to the length of `size`.
-#   ## * `address` must be initialized to 46 in length.
-#   template adaptRecvFromToDomain(domain: Domain) =
-#     var lAddr = sizeof(sAddr).SockLen
+proc recvFrom*(socket: AsyncSocket, data: FutureVar[string], size: int,
+               address: FutureVar[string], port: FutureVar[Port],
+               flags = {SocketFlag.SafeDisconn}): owned(Future[int])
+              {.async, since: (1, 3).} =
+  ## Receives a datagram data from `socket` into `data`, which must be at
+  ## least of size `size`. The address and port of datagram's sender will be
+  ## stored into `address` and `port`, respectively. Returned future will
+  ## complete once one datagram has been received, and will return size of
+  ## packet received.
+  ##
+  ## If an error occurs an OSError exception will be raised.
+  ##
+  ## This proc is normally used with connectionless sockets (UDP sockets).
+  ##
+  ## **Notes**
+  ## * `data` must be initialized to the length of `size`.
+  ## * `address` must be initialized to 46 in length.
+  template adaptRecvFromToDomain(domain: Domain) =
+    var lAddr = sizeof(sAddr).SockLen
 
-#     result = await recvFromInto(AsyncFD(getFd(socket)), cstring(data.mget()), size,
-#                                 cast[ptr SockAddr](addr sAddr), addr lAddr,
-#                                 flags)
+    result = await recvFromInto(AsyncFD(getFd(socket)), cstring(data.mget()), size,
+                                cast[ptr SockAddr](addr sAddr), addr lAddr,
+                                flags)
 
-#     data.mget().setLen(result)
-#     data.complete()
+    data.mget().setLen(result)
+    data.complete()
 
-#     getAddrString(cast[ptr SockAddr](addr sAddr), address.mget())
+    getAddrString(cast[ptr SockAddr](addr sAddr), address.mget())
 
-#     address.complete()
+    address.complete()
 
-#     when domain == AF_INET6:
-#       port.complete(ntohs(sAddr.sin6_port).Port)
-#     else:
-#       port.complete(ntohs(sAddr.sin_port).Port)
+    when domain == AF_INET6:
+      port.complete(ntohs(sAddr.sin6_port).Port)
+    else:
+      port.complete(ntohs(sAddr.sin_port).Port)
 
-#   assert(socket.protocol != IPPROTO_TCP,
-#          "Cannot `recvFrom` on a TCP socket. Use `recv` or `recvInto` instead")
-#   assert(not socket.closed, "Cannot `recvFrom` on a closed socket")
-#   assert(size == len(data.mget()),
-#          "`date` was not initialized correctly. `size` != `len(data.mget())`")
-#   assert(46 == len(address.mget()),
-#          "`address` was not initialized correctly. 46 != `len(address.mget())`")
+  assert(socket.protocol != IPPROTO_TCP,
+         "Cannot `recvFrom` on a TCP socket. Use `recv` or `recvInto` instead")
+  assert(not socket.closed, "Cannot `recvFrom` on a closed socket")
+  assert(size == len(data.mget()),
+         "`date` was not initialized correctly. `size` != `len(data.mget())`")
+  assert(46 == len(address.mget()),
+         "`address` was not initialized correctly. 46 != `len(address.mget())`")
 
-#   case socket.domain
-#   of AF_INET6:
-#     var sAddr: Sockaddr_in6
-#     adaptRecvFromToDomain(AF_INET6)
-#   of AF_INET:
-#     var sAddr: Sockaddr_in
-#     adaptRecvFromToDomain(AF_INET)
-#   else:
-#     raise newException(ValueError, "Unknown socket address family")
+  case socket.domain
+  of AF_INET6:
+    var sAddr: Sockaddr_in6
+    adaptRecvFromToDomain(AF_INET6)
+  of AF_INET:
+    var sAddr: Sockaddr_in
+    adaptRecvFromToDomain(AF_INET)
+  else:
+    raise newException(ValueError, "Unknown socket address family")
 
-# proc recvFrom*(socket: AsyncSocket, size: int,
-#                flags = {SocketFlag.SafeDisconn}):
-#               owned(Future[tuple[data: string, address: string, port: Port]])
-#               {.async, since: (1, 3).} =
-#   ## Receives a datagram data from `socket`, which must be at least of size
-#   ## `size`. Returned future will complete once one datagram has been received
-#   ## and will return tuple with: data of packet received; and address and port
-#   ## of datagram's sender.
-#   ##
-#   ## If an error occurs an OSError exception will be raised.
-#   ##
-#   ## This proc is normally used with connectionless sockets (UDP sockets).
-#   var
-#     data = newFutureVar[string]()
-#     address = newFutureVar[string]()
-#     port = newFutureVar[Port]()
+proc recvFrom*(socket: AsyncSocket, size: int,
+               flags = {SocketFlag.SafeDisconn}):
+              owned(Future[tuple[data: string, address: string, port: Port]])
+              {.async, since: (1, 3).} =
+  ## Receives a datagram data from `socket`, which must be at least of size
+  ## `size`. Returned future will complete once one datagram has been received
+  ## and will return tuple with: data of packet received; and address and port
+  ## of datagram's sender.
+  ##
+  ## If an error occurs an OSError exception will be raised.
+  ##
+  ## This proc is normally used with connectionless sockets (UDP sockets).
+  var
+    data = newFutureVar[string]()
+    address = newFutureVar[string]()
+    port = newFutureVar[Port]()
 
-#   data.mget().setLen(size)
-#   address.mget().setLen(46)
+  data.mget().setLen(size)
+  address.mget().setLen(46)
 
-#   let read = await recvFrom(socket, data, size, address, port, flags)
+  let read = await recvFrom(socket, data, size, address, port, flags)
 
-#   result = (data.mget(), address.mget(), port.mget())
+  result = (data.mget(), address.mget(), port.mget())
 
 when not defined(testing) and isMainModule:
   type
