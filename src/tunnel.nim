@@ -21,15 +21,15 @@ var ssl_ctx = newContext(verifyMode = CVerifyPeer)
 proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: string){.async.} =
     con.socket.close()
     var fc = 0
-    
+
     while true:
         if fc > 3:
             con.close()
             raise newException(ValueError, "[SslConnect] could not connect, all retires failed")
-    
+
         # var fut = con.socket.connect(ip, con.port.Port, sni = sni)
-        var fut = asyncnet.dial(ip, Port(con.port),buffered = false)
-          
+        var fut = asyncnet.dial(ip, Port(con.port), buffered = false)
+
         var timeout = withTimeout(fut, 3000)
         yield timeout
         if timeout.failed():
@@ -45,9 +45,9 @@ proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: st
             con.close()
             raise newException(ValueError, "[SslConnect] dial timed-out")
 
-       
+
     try:
-        
+
         ssl_ctx.wrapConnectedSocket(
             con.socket, handshakeAsClient, sni)
         let flags = {SocketFlag.SafeDisconn}
@@ -55,24 +55,24 @@ proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: st
         block handshake:
             sslLoop(con.socket, flags, sslDoHandshake(con.socket.sslHandle))
 
-        block free:
-            let res =
-                # Don't call SSL_shutdown if the connection has not been fully
-                # established, see:
-                # https://github.com/openssl/openssl/issues/710#issuecomment-253897666
-                if not con.socket.sslNoShutdown and SSL_in_init(con.socket.sslHandle) == 0:
-                ErrClearError()
-                SSL_shutdown(con.socket.sslHandle)
-                else:
-                0
-            SSL_free(con.socket.sslHandle)
+        # block free:
+        #     let res =
+        #         # Don't call SSL_shutdown if the connection has not been fully
+        #         # established, see:
+        #         # https://github.com/openssl/openssl/issues/710#issuecomment-253897666
+        #         if not con.socket.sslNoShutdown and SSL_in_init(con.socket.sslHandle) == 0:
+        #         ErrClearError()
+        #         SSL_shutdown(con.socket.sslHandle)
+        #         else:
+        #         0
+        #     SSL_free(con.socket.sslHandle)
 
-            if res == 0:
-                discard
-            elif res != 1:
-                raiseSSLError()
-            
-            
+        #     if res == 0:
+        #         discard
+        #     elif res != 1:
+        #         raiseSSLError()
+
+
     except:
         echo "[SslConnect] handshake error!"
         con.close()
@@ -81,17 +81,16 @@ proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: st
     if globals.log_conn_create: print "[SslConnect] conencted !"
 
     # let to_send = &"GET / HTTP/1.1\nHost: {sni}\nAccept: */*\n\n"
-    # await con.socket.send(to_send)  
+    # await con.socket.send(to_send)
 
     #now we use this socket as a normal tcp data transfer socket
-    con.socket.isSsl = false
+    # con.socket.isSsl = false
 
     #AES default chunk size is 16 so use a multple of 16
     let rlen = 16*(4+rand(4))
     var random_trust_data: string
     random_trust_data.setLen(rlen)
 
-    prepareMutation(random_trust_data)
     copyMem(unsafeAddr random_trust_data[0], unsafeAddr globals.sh1.uint32, 4)
     copyMem(unsafeAddr random_trust_data[4], unsafeAddr globals.sh2.uint32, 4)
     if globals.multi_port:
@@ -100,8 +99,8 @@ proc sslConnect(con: Connection, ip: string, client_origin_port: uint32, sni: st
     copyMem(unsafeAddr random_trust_data[12], unsafeAddr(globals.random_600[rand(250)]), rlen-12)
 
 
-    await con.socket.send(random_trust_data)
-            
+    await con.pureSend(random_trust_data)
+
     con.trusted = TrustStatus.yes
 
 
@@ -110,14 +109,14 @@ proc poolFrame(client_port: uint32, count: uint = 0){.gcsafe.} =
         var con = newConnection()
         con.port = globals.next_route_port.uint32
         var fut = sslConnect(con, globals.next_route_addr, client_port, globals.final_target_domain)
-        
+
         fut.addCallback(
-            proc() {.gcsafe.} =      
-                if fut.failed:
-                    if globals.log_conn_error: echo fut.error.msg
-                else:
-                    if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
-                    context.outbound[client_port].register con
+            proc() {.gcsafe.} =
+            if fut.failed:
+                if globals.log_conn_error: echo fut.error.msg
+            else:
+                if globals.log_conn_create: echo &"[createNewCon] registered a new connection to the pool"
+                context.outbound[client_port].register con
         )
 
     if count == 0:
@@ -130,7 +129,7 @@ proc poolFrame(client_port: uint32, count: uint = 0){.gcsafe.} =
             create()
 
     else:
-        for i in 0..count:
+        for i in 0..<count:
             create()
 
 
@@ -139,7 +138,7 @@ proc poolFrame(client_port: uint32, count: uint = 0){.gcsafe.} =
 proc processConnection(client_a: Connection) {.async.} =
     var client: Connection = client_a
     var remote: Connection
-    var data =  ""
+    var data = ""
 
     var closed = false
     proc close() =
@@ -148,7 +147,7 @@ proc processConnection(client_a: Connection) {.async.} =
             if globals.log_conn_destory: echo "[processRemote] closed client & remote"
             if remote != nil:
                 remote.close()
-            
+
             client.close()
 
 
@@ -156,7 +155,7 @@ proc processConnection(client_a: Connection) {.async.} =
 
         while (not remote.isClosed) and (not client.isClosed):
             try:
-                data = await remote.recv(globals.chunk_size)
+                data = await remote.pureRecv(globals.chunk_size)
                 if globals.log_data_len: echo &"[processRemote] {data.len()} bytes from remote"
 
                 if data.len() == 0:
@@ -189,8 +188,6 @@ proc processConnection(client_a: Connection) {.async.} =
             callSoon do: poolFrame(client.port)
             client.close()
 
-
-
     proc processClient() {.async.} =
         while (not client.isClosed) and (not remote.isClosed):
             try:
@@ -202,7 +199,7 @@ proc processConnection(client_a: Connection) {.async.} =
 
                 if not remote.isClosed:
                     normalSend(data)
-                    await remote.send(data)
+                    await remote.pureSend(data)
                     if globals.log_data_len: echo &"{data.len} bytes -> Remote"
 
             except: break
@@ -257,6 +254,11 @@ proc start*(){.async.} =
     await sleepAsync(2500)
     echo &"Mode Tunnel:  {globals.self_ip} <->  {globals.next_route_addr}  => {globals.final_target_domain}"
     asyncCheck start_server()
+
+    # while true:
+    #     poolFrame(globals.listen_port, 40)
+    #     sleepAsync(400)
+        
 
 
 

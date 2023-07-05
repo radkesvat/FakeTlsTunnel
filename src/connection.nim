@@ -39,6 +39,14 @@ template send*(con: Connection, data: string): untyped =
     )
     result
 
+template pureSend*(con: Connection, data: string): untyped = 
+    con.action_start_time = et
+    var result = send(con.socket.fd.AsyncFD, data, {SocketFlag.SafeDisconn})
+    result.addCallback(proc()=
+        con.action_start_time = 0
+    )
+    result
+
 #recv with a simple low cost timeout
 template recv*(con: Connection, data: SomeInteger): untyped = 
     con.action_start_time = et
@@ -48,18 +56,30 @@ template recv*(con: Connection, data: SomeInteger): untyped =
     )
     result
 
+
+proc pureRecv*(con: Connection, size: SomeInteger): Future[string] {.async.} = 
+    con.action_start_time = et
+    result = newString(size)
+    var fut = asyncdispatch.recvInto(con.socket.fd.AsyncFD, addr result[0], size, {SocketFlag.SafeDisconn})
+    fut.addCallback(proc()=
+        con.action_start_time = 0
+    )
+    result.setLen(await fut)
+    return result
+    
+
+
+
 template isClosed*(con: Connection): bool = con.socket.isClosed()
 
 
 
 
 proc close*(con: Connection) = 
-    if not con.isClosed():
-        con.socket.close()
-
-        let i = allConnections.find(con)
-        if i != -1:
-            allConnections.del(i)
+    con.socket.close()
+    let i = allConnections.find(con)
+    if i != -1:
+        allConnections.del(i)
 
 
 proc newConnection*(socket: AsyncSocket = nil, buffered: bool = globals.socket_buffered): Connection =
@@ -92,7 +112,7 @@ proc startController*(){.async.}=
         et = epochTime().uint
         await sleepAsync(1000)
 
-
+        echo GC_getStatistics()
         allConnections.keepIf(
             proc(x: Connection):bool =
                 if x.action_start_time != 0:
