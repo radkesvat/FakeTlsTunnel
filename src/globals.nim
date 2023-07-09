@@ -1,7 +1,7 @@
 import dns_resolve, hashes, asyncdispatch, print, parseopt, strutils, random, net, strutils, osproc, strformat
 import std/sha1
 
-const version = "11.4"
+const version = "11.5"
 
 type RunMode*{.pure.} = enum
     tunnel, server
@@ -172,7 +172,7 @@ proc init*() =
     if exit: quit(-1)
 
     if terminate_secs != 0:
-        sleepAsync(terminate_secs).addCallback(
+        sleepAsync(terminate_secs*1000).addCallback(
             proc() =
             echo "Exiting due to termination timeout. (--terminate)"
             quit(0)
