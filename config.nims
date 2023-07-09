@@ -39,8 +39,8 @@ task build_server, "builds server":
     # switch("define", "nimNoGetRandom") # asuswrt-merlin
 
     var output = output_dir_target /  output_file_name
-    # switch("mm", "orc")
-    switch("mm", "refc")
+    switch("mm", "orc")
+    # switch("mm", "refc")
     switch("warning", "BareExcept:off")
     # switch("define", "useMalloc")
 
