@@ -33,12 +33,12 @@ printf  "\n"
 
 
 
-wget "https://github.com/radkesvat/FakeTlsTunnel/releases/download/V11.4/v11.4_linux_amd64.zip" -O v11.4_linux_amd64.zip
+wget "https://github.com/radkesvat/FakeTlsTunnel/releases/download/V11.5/v11.5_linux_amd64.zip" -O v11.5_linux_amd64.zip
 
-unzip -o v11.4_linux_amd64.zip
+unzip -o v11.5_linux_amd64.zip
 
 chmod +x FTT
-rm v11.4_linux_amd64.zip
+rm v11.5_linux_amd64.zip
 
 echo "finished."
 
