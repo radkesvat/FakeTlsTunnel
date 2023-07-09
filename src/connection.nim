@@ -31,40 +31,30 @@ var et:uint = 0 #last epoch time
 proc isTrusted*(con: Connection): bool = con.trusted == TrustStatus.yes
 
 #send with a simple low cost timeout
-template send*(con: Connection, data: string): untyped = 
+proc send*(con: Connection, data: string):Future[void] {.async.} = 
     con.action_start_time = et
-    var result = con.socket.send(data)
-    result.addCallback(proc()=
-        con.action_start_time = 0
-    )
-    result
+    await con.socket.send(data)
+    con.action_start_time = 0
 
-template pureSend*(con: Connection, data: string): untyped = 
+proc pureSend*(con: Connection, data: string):Future[void] {.async.} = 
     con.action_start_time = et
-    var result = send(con.socket.fd.AsyncFD, data, {SocketFlag.SafeDisconn})
-    result.addCallback(proc()=
-        con.action_start_time = 0
-    )
-    result
+    await send(con.socket.fd.AsyncFD, data, {SocketFlag.SafeDisconn})
+    con.action_start_time = 0
 
 #recv with a simple low cost timeout
-template recv*(con: Connection, data: SomeInteger): untyped = 
+proc recv*(con: Connection, size: SomeInteger): Future[string]  {.async.} = 
     con.action_start_time = et
-    var result = con.socket.recv(data)
-    result.addCallback(proc()=
-        con.action_start_time = 0
-    )
-    result
+    result = await con.socket.recv(size)
+    con.action_start_time = 0
 
 
 proc pureRecv*(con: Connection, size: SomeInteger): Future[string] {.async.} = 
     con.action_start_time = et
     result = newString(size)
     var fut = asyncdispatch.recvInto(con.socket.fd.AsyncFD, addr result[0], size, {SocketFlag.SafeDisconn})
-    fut.addCallback(proc()=
-        con.action_start_time = 0
-    )
     result.setLen(await fut)
+    con.action_start_time = 0
+
     return result
     
 
@@ -99,8 +89,7 @@ proc newConnection*(socket: AsyncSocket = nil, buffered: bool = globals.socket_b
 
 proc grab*(cons: var Connections):Connection=
     if cons.connections.len() == 0: return nil
-    result =  cons.connections[0]
-    cons.connections.del(0)
+    result = cons.connections.pop()
     result.register_start_time = 0
 
 proc register*(cons: var Connections, con: Connection) =  
@@ -110,9 +99,7 @@ proc register*(cons: var Connections, con: Connection) =
 proc startController*(){.async.}=
     while true:
         et = epochTime().uint
-        await sleepAsync(1000)
-
-        # echo GC_getStatistics()
+        echo GC_getStatistics()
         allConnections.keepIf(
             proc(x: Connection):bool =
                 if x.action_start_time != 0:
@@ -128,3 +115,5 @@ proc startController*(){.async.}=
                         return false
                 return true
         )
+        # GC_fullCollect()
+        await sleepAsync(1000)
