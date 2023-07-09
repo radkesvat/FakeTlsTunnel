@@ -1,7 +1,7 @@
 import dns_resolve, hashes, asyncdispatch, print, parseopt, strutils, random, net, strutils, osproc, strformat
 import std/sha1
 
-const version = "11.3"
+const version = "11.4"
 
 type RunMode*{.pure.} = enum
     tunnel, server
