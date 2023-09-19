@@ -9,17 +9,36 @@ root_access() {
 }
 
 # Function to check if wget is installed, and install it if not
-check_dependencies() {
-    if [ -x "$(command -v apt-get)" ]; then
-        package_manager="apt-get"
-    elif [ -x "$(command -v yum)" ]; then
-        package_manager="yum"
-    elif [ -x "$(command -v dnf)" ]; then
-        package_manager="dnf"
+detect_distribution() {
+    # Detect the Linux distribution
+    if [ -f /etc/os-release ]; then
+        source /etc/os-release
+        case "$ID" in
+            ubuntu)
+                package_manager="apt-get"
+                ;;
+            debian)
+                package_manager="apt-get"
+                ;;
+            centos)
+                package_manager="yum"
+                ;;
+            fedora)
+                package_manager="dnf"
+                ;;
+            *)
+                echo "Unsupported distribution!"
+                exit 1
+                ;;
+        esac
     else
-        echo "Unsupported package manager. Please install wget, lsof, and iptables manually."
+        echo "Unsupported distribution!"
         exit 1
     fi
+}
+
+check_dependencies() {
+    detect_distribution
 
     if ! command -v wget &> /dev/null; then
         echo "wget is not installed. Installing..."
