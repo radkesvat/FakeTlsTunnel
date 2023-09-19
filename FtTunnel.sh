@@ -1,22 +1,41 @@
 #!/bin/bash
 
-# Function to check if wget is installed, and install it if not
-check_dependencies() {
-    if ! command -v wget &> /dev/null; then
-        echo "wget is not installed. Installing..."
-        sudo apt-get install wget
-    fi
-    
-    if ! command -v lsof &> /dev/null; then
-        echo "lsof is not installed. Installing..."
-        sudo apt-get install lsof
-    fi
-    
-    if ! command -v iptables &> /dev/null; then
-        echo "iptables is not installed. Installing..."
-        sudo apt-get install iptables
+root_access() {
+    # Check if the script is running as root
+    if [ "$EUID" -ne 0 ]; then
+        echo "This script requires root access. please run as root."
+        exit 1
     fi
 }
+
+# Function to check if wget is installed, and install it if not
+check_dependencies() {
+    package_manager=""
+
+    # Detect the package manager
+    if [ -x "$(command -v apt-get)" ]; then
+        package_manager="apt-get"
+    elif [ -x "$(command -v yum)" ]; then
+        package_manager="yum"
+    elif [ -x "$(command -v dnf)" ]; then
+        package_manager="dnf"
+    else
+        echo "Unsupported package manager. Please install dependencies manually."
+        return
+    fi
+    
+    # Define the list of dependencies
+    dependencies=("wget" "lsof" "iptables" "unzip")
+    
+    # Install missing dependencies
+    for dependency in "${dependencies[@]}"; do
+        if ! command -v "$dependency"; then
+            echo "$dependency is not installed. Installing..."
+            sudo "$package_manager" install "$dependency" -y
+        fi
+    done
+}
+
 
 #Check installed service
 check_installed() {
@@ -82,6 +101,7 @@ configure_arguments() {
 
 # Function to handle installation single port
 install_single() {
+    root_access
     check_dependencies
     check_installed2
     install_ftt
@@ -132,6 +152,7 @@ uninstall_single() {
 
 # Function to handle installation
 install_multi() {
+     root_access
     check_dependencies
     check_installed
     install_ftt
