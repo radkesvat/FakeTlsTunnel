@@ -232,7 +232,7 @@ version=$(./FTT -v 2>&1 | grep -o 'version="[0-9.]*"')
 
 # Main menu
 clear
-echo "By --> Peyman * Github.com/Ptechgithub * "
+echo "By --> Peyman *  Github.com/Ptechgithub * "
 echo "Your IP is: ($myip) "
 echo ""
 echo " --------#- Fake Tls Tunnel -#--------"
