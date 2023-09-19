@@ -1,47 +1,22 @@
 #!/bin/bash
 
-root_access() {
-    # Check if the script is running as root
-    if [ "$EUID" -ne 0 ]; then
-        echo "This script requires root access. please run as root."
-        exit 1
-    fi
-}
-
 # Function to check if wget is installed, and install it if not
 check_dependencies() {
-    local dependencies=("wget" "lsof" "unzip" "iptables")
-
-    if [ -f /etc/os-release ]; then
-        source /etc/os-release
-        case $ID in
-            debian|ubuntu)
-                package_manager="apt-get"
-                ;;
-            centos|rhel)
-                package_manager="yum"
-                ;;
-            fedora)
-                package_manager="dnf"
-                ;;
-            *)
-                echo "Unsupported distribution: $ID"
-                return 1
-                ;;
-        esac
-    else
-        echo "Cannot detect the operating system."
-        return 1
+    if ! command -v wget &> /dev/null; then
+        echo "wget is not installed. Installing..."
+        sudo apt-get install wget
     fi
-
-    for dep in "${dependencies[@]}"; do
-        if ! command -v "$dep" &> /dev/null; then
-            echo "$dep is not installed. Installing..."
-            sudo "$package_manager" install "$dep"
-        fi
-    done
+    
+    if ! command -v lsof &> /dev/null; then
+        echo "lsof is not installed. Installing..."
+        sudo apt-get install lsof
+    fi
+    
+    if ! command -v iptables &> /dev/null; then
+        echo "iptables is not installed. Installing..."
+        sudo apt-get install iptables
+    fi
 }
-
 
 #Check installed service
 check_installed() {
@@ -107,7 +82,6 @@ configure_arguments() {
 
 # Function to handle installation single port
 install_single() {
-    root_access
     check_dependencies
     check_installed2
     install_ftt
@@ -158,7 +132,6 @@ uninstall_single() {
 
 # Function to handle installation
 install_multi() {
-     root_access
     check_dependencies
     check_installed
     install_ftt
