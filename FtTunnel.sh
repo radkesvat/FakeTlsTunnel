@@ -1,5 +1,13 @@
 #!/bin/bash
 
+root_access() {
+    # Check if the script is running as root
+    if [ "$EUID" -ne 0 ]; then
+        echo "This script requires root access. please run as root."
+        exit 1
+    fi
+}
+
 # Function to check if wget is installed, and install it if not
 check_dependencies() {
     if ! command -v wget &> /dev/null; then
@@ -82,6 +90,7 @@ configure_arguments() {
 
 # Function to handle installation single port
 install_single() {
+    root_access
     check_dependencies
     check_installed2
     install_ftt
@@ -132,6 +141,7 @@ uninstall_single() {
 
 # Function to handle installation
 install_multi() {
+    root_access
     check_dependencies
     check_installed
     install_ftt
