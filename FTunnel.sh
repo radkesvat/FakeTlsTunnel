@@ -46,7 +46,6 @@ check_dependencies() {
         sudo $package_manager install gcc -y
     fi
 }
-}
 
 #Check installed service
 check_installed() {
