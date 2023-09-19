@@ -43,6 +43,8 @@ tls handshake رو با دامنه کاملا دلخواه تکمیل کنید �
 bash <(curl -fsSL https://raw.githubusercontent.com/Ptechgithub/FakeTlsTunnel/main/FtTunnel.sh)
 ```
 
+![2](https://raw.githubusercontent.com/Ptechgithub/configs/main/media/2.jpg)
+
 # روش دوم:
 
 اول دقت کنید که یه نسخه از این برنامه روی سرور ایران باید ران شه و یه نسخه روی سرور خارج.
