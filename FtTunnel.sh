@@ -31,7 +31,7 @@ detect_distribution() {
 check_dependencies() {
     detect_distribution
 
-    local dependencies=("wget" "lsof" "iptables" "unzip" "gcc" "git" "curl" "tar")
+    local dependencies=("wget" "lsof" "iptables" "unzip" "git" "curl" "tar")
     
     for dep in "${dependencies[@]}"; do
         if ! command -v "${dep}" &> /dev/null; then
