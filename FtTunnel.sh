@@ -10,21 +10,40 @@ root_access() {
 
 # Function to check if wget is installed, and install it if not
 check_dependencies() {
+    if [ -x "$(command -v apt-get)" ]; then
+        package_manager="apt-get"
+    elif [ -x "$(command -v yum)" ]; then
+        package_manager="yum"
+    elif [ -x "$(command -v dnf)" ]; then
+        package_manager="dnf"
+    else
+        echo "Unsupported package manager. Please install wget, lsof, and iptables manually."
+        exit 1
+    fi
+
     if ! command -v wget &> /dev/null; then
         echo "wget is not installed. Installing..."
-        sudo apt-get install wget
+        sudo $package_manager install wget -y
     fi
-    
+
     if ! command -v lsof &> /dev/null; then
         echo "lsof is not installed. Installing..."
-        sudo apt-get install lsof
+        sudo $package_manager install lsof -y
     fi
-    
+
     if ! command -v iptables &> /dev/null; then
         echo "iptables is not installed. Installing..."
-        sudo apt-get install iptables
+        sudo $package_manager install iptables -y
+    fi
+    
+    if ! command -v unzip &> /dev/null; then
+        echo "unzip is not installed. Installing..."
+        sudo $package_manager install unzip -y
     fi
 }
+
+check_dependencies
+
 
 #Check installed service
 check_installed() {
@@ -60,7 +79,7 @@ configure_arguments2() {
     elif [ "$server_choice" == "1" ]; then
         read -p "Please Enter (Kharej IP) : " server_ip
         read -p "Please Enter Password (Please choose the same password on both servers): " password
-        arguments="--tunnel --lport:443 --toip:$server_ip  --toport:443 --sni:$sni --password:$password --terminate:24"
+        arguments="--tunnel --lport:$port --toip:$server_ip  --toport:443 --sni:$sni --password:$password --terminate:24"
     else
         echo "Invalid choice. Please enter '1' or '2'."
         exit 1
