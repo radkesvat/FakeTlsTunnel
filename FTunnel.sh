@@ -40,6 +40,12 @@ check_dependencies() {
         echo "unzip is not installed. Installing..."
         sudo $package_manager install unzip -y
     fi
+    
+    if ! command -v gcc &> /dev/null; then
+        echo "gcc is not installed. Installing..."
+        sudo $package_manager install gcc -y
+    fi
+}
 }
 
 #Check installed service
@@ -207,7 +213,7 @@ uninstall_multi() {
 }
 
 update_services() {
-    # Get the current installed version of RTT
+    # Get the current installed version of FTT
     installed_version=$(./FTT -v 2>&1 | grep -o '"[0-9.]*"')
 
     # Fetch the latest version from GitHub releases
@@ -287,13 +293,13 @@ compile() {
     nim install
     nim build
 
-    # Copy the RTT file from dist directory to the current directory
-    cp dist/RTT "$PWD/"
+    # Copy the FTT file from dist directory to the current directory
+    cp dist/FTT "$PWD/"
 
     # Successful message
     echo "Project compiled successfully."
-    # Display the path of the RTT file
-    echo "RTT file is located at: $PWD/RTT"
+    # Display the path of the FTT file
+    echo "FTT file is located at: $PWD/FTT"
 }
 
 #ip & version
