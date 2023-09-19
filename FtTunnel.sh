@@ -42,9 +42,6 @@ check_dependencies() {
     fi
 }
 
-check_dependencies
-
-
 #Check installed service
 check_installed() {
     if [ -f "/etc/systemd/system/faketunnel.service" ]; then
