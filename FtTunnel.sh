@@ -10,28 +10,34 @@ root_access() {
 
 # Function to check if wget is installed, and install it if not
 check_dependencies() {
-    package_manager=""
+    local dependencies=("wget" "lsof" "unzip" "iptables")
 
-    # Detect the package manager
-    if [ -x "$(command -v apt-get)" ]; then
-        package_manager="apt-get"
-    elif [ -x "$(command -v yum)" ]; then
-        package_manager="yum"
-    elif [ -x "$(command -v dnf)" ]; then
-        package_manager="dnf"
+    if [ -f /etc/os-release ]; then
+        source /etc/os-release
+        case $ID in
+            debian|ubuntu)
+                package_manager="apt-get"
+                ;;
+            centos|rhel)
+                package_manager="yum"
+                ;;
+            fedora)
+                package_manager="dnf"
+                ;;
+            *)
+                echo "Unsupported distribution: $ID"
+                return 1
+                ;;
+        esac
     else
-        echo "Unsupported package manager. Please install dependencies manually."
-        return
+        echo "Cannot detect the operating system."
+        return 1
     fi
-    
-    # Define the list of dependencies
-    dependencies=("wget" "lsof" "iptables" "unzip")
-    
-    # Install missing dependencies
-    for dependency in "${dependencies[@]}"; do
-        if ! command -v "$dependency"; then
-            echo "$dependency is not installed. Installing..."
-            sudo "$package_manager" install "$dependency" -y
+
+    for dep in "${dependencies[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            echo "$dep is not installed. Installing..."
+            sudo "$package_manager" install "$dep"
         fi
     done
 }
@@ -246,7 +252,7 @@ clear
 echo "By --> Peyman * Github.com/Ptechgithub * "
 echo "Your IP is: ($myip) "
 echo ""
-echo " ----00----#- Fake Tls Tunnel -#--------"
+echo " --------#- Fake Tls Tunnel -#--------"
 echo "1) Install (Single port)"
 echo "2) Uninstall (Single port)"
 echo " ----------------------------"
