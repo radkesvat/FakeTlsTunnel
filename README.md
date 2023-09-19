@@ -7,7 +7,7 @@
 
 
 # مقدمه کلی
-# [اموزش در کانال IR_TECH](https://youtu.be/uemg9x6ZRgY)
+## [اموزش در کانال IR_TECH](https://youtu.be/uemg9x6ZRgY)
 
 
 با تشکر از دوستمون AminiYT بابت [آموزش ویدویی](https://youtu.be/Uyidjirkis0) ؛ سگارو، وحید عزیز و تمام دوستانی که برای دسترسی آزاد به اینترنت زحمت میکشند
