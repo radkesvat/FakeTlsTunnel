@@ -45,7 +45,7 @@ tls handshake رو با دامنه کاملا دلخواه تکمیل کنید �
 
 # روش اول ( نصب با اسکریپت ):
 ```
-bash <(curl -fsSL https://raw.githubusercontent.com/Ptechgithub/FakeTlsTunnel/master/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Ptechgithub/FakeTlsTunnel/main/install.sh)
 ```
 
 ![2](https://raw.githubusercontent.com/Ptechgithub/configs/main/media/2.jpg)
