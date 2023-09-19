@@ -242,6 +242,60 @@ update_services() {
     fi
 }
 
+compile() {
+    # Detect the operating system
+    if [[ "$OSTYPE" == "linux-gnu" ]]; then
+        # Linux operating system
+        if [[ "$(uname -m)" == "x86_64" ]]; then
+            # 64-bit architecture
+            file_url="https://github.com/nim-lang/nightlies/releases/download/latest-version-2-0/linux_x64.tar.xz"
+        elif [[ "$(uname -m)" == "x86" ]]; then
+            # 32-bit architecture
+            file_url="https://github.com/nim-lang/nightlies/releases/download/latest-version-2-0/linux_x32.tar.xz"
+        elif [[ "$(uname -m)" == "aarch64" ]]; then
+            # arm64 architecture
+            file_url="https://github.com/nim-lang/nightlies/releases/download/latest-version-2-0/linux_arm64.tar.xz"
+        elif [[ "$(uname -m)" == "armv7l" ]]; then
+            # armv7l architecture
+            file_url="https://github.com/nim-lang/nightlies/releases/download/latest-version-2-0/linux_armv7l.tar.xz"
+        else
+            echo "Unknown architecture!"
+            exit 1
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS operating system
+        file_url="https://github.com/nim-lang/nightlies/releases/download/latest-version-2-0/macosx_x64.tar.xz"
+    else
+        echo "Unsupported operating system!"
+        exit 1
+    fi
+
+    # Download the file based on the operating system and architecture
+    wget "$file_url"
+    tar -xvf "$(basename "$file_url")"
+
+    # Add the Nim path to PATH
+    export PATH="$PWD/nim-2.0.1/bin:$PATH"
+
+    # Clone the project
+    git clone https://github.com/radkesvat/ReverseTlsTunnel.git
+
+    # Navigate to the project directory
+    cd ReverseTlsTunnel
+
+    # Install and compile the project
+    nim install
+    nim build
+
+    # Copy the RTT file from dist directory to the current directory
+    cp dist/RTT "$PWD/"
+
+    # Successful message
+    echo "Project compiled successfully."
+    # Display the path of the RTT file
+    echo "RTT file is located at: $PWD/RTT"
+}
+
 #ip & version
 myip=$(hostname -I | awk '{print $1}')
 version=$(./FTT -v 2>&1 | grep -o 'version="[0-9.]*"')
@@ -259,6 +313,7 @@ echo "3) Install (Multi port)"
 echo "4) Uninstall (Multi port)"
 echo " ----------------------------"
 echo "5) Update FTT"
+echo "6) Compile FTT"
 echo "0) Exit"
 echo " --------------$version--------------"
 read -p "Please choose: " choice
@@ -278,6 +333,9 @@ case $choice in
         ;;
     5)
         update_services
+        ;;
+    6)
+        compile
         ;;
     0)   
         exit
