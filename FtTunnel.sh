@@ -1,21 +1,44 @@
 #!/bin/bash
 
-# Function to check if wget is installed, and install it if not
+root_access() {
+    # Check if the script is running as root
+    if [ "$EUID" -ne 0 ]; then
+        echo "This script requires root access. please run as root."
+        exit 1
+    fi
+}
+
+detect_distribution() {
+    # Detect the Linux distribution
+    local supported_distributions=("ubuntu" "debian" "centos" "fedora")
+    
+    if [ -f /etc/os-release ]; then
+        source /etc/os-release
+        if [[ "${ID}" = "ubuntu" || "${ID}" = "debian" || "${ID}" = "centos" || "${ID}" = "fedora" ]]; then
+            package_manager="apt-get"
+            [ "${ID}" = "centos" ] && package_manager="yum"
+            [ "${ID}" = "fedora" ] && package_manager="dnf"
+        else
+            echo "Unsupported distribution!"
+            exit 1
+        fi
+    else
+        echo "Unsupported distribution!"
+        exit 1
+    fi
+}
+
 check_dependencies() {
-    if ! command -v wget &> /dev/null; then
-        echo "wget is not installed. Installing..."
-        sudo apt-get install wget
-    fi
+    detect_distribution
+
+    local dependencies=("wget" "lsof" "iptables" "unzip" "git" "curl" "tar")
     
-    if ! command -v lsof &> /dev/null; then
-        echo "lsof is not installed. Installing..."
-        sudo apt-get install lsof
-    fi
-    
-    if ! command -v iptables &> /dev/null; then
-        echo "iptables is not installed. Installing..."
-        sudo apt-get install iptables
-    fi
+    for dep in "${dependencies[@]}"; do
+        if ! command -v "${dep}" &> /dev/null; then
+            echo "${dep} is not installed. Installing..."
+            sudo "${package_manager}" install "${dep}" -y
+        fi
+    done
 }
 
 #Check installed service
@@ -52,7 +75,7 @@ configure_arguments2() {
     elif [ "$server_choice" == "1" ]; then
         read -p "Please Enter (Kharej IP) : " server_ip
         read -p "Please Enter Password (Please choose the same password on both servers): " password
-        arguments="--tunnel --lport:443 --toip:$server_ip  --toport:443 --sni:$sni --password:$password --terminate:24"
+        arguments="--tunnel --lport:$port --toip:$server_ip  --toport:443 --sni:$sni --password:$password --terminate:24"
     else
         echo "Invalid choice. Please enter '1' or '2'."
         exit 1
@@ -82,6 +105,7 @@ configure_arguments() {
 
 # Function to handle installation single port
 install_single() {
+    root_access
     check_dependencies
     check_installed2
     install_ftt
@@ -132,6 +156,7 @@ uninstall_single() {
 
 # Function to handle installation
 install_multi() {
+    root_access
     check_dependencies
     check_installed
     install_ftt
@@ -181,7 +206,7 @@ uninstall_multi() {
 }
 
 update_services() {
-    # Get the current installed version of RTT
+    # Get the current installed version of FTT
     installed_version=$(./FTT -v 2>&1 | grep -o '"[0-9.]*"')
 
     # Fetch the latest version from GitHub releases

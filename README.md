@@ -7,6 +7,8 @@
 
 
 # مقدمه کلی
+## [اموزش در کانال IR_TECH](https://youtu.be/uemg9x6ZRgY)
+
 
 با تشکر از دوستمون AminiYT بابت [آموزش ویدویی](https://youtu.be/Uyidjirkis0) ؛ سگارو، وحید عزیز و تمام دوستانی که برای دسترسی آزاد به اینترنت زحمت میکشند
 
@@ -45,7 +47,7 @@ tls handshake رو با دامنه کاملا دلخواه تکمیل کنید �
 
 # روش اول ( نصب با اسکریپت ):
 ```
-bash <(curl -fsSL https://raw.githubusercontent.com/Ptechgithub/FakeTlsTunnel/main/FtTunnel.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Ptechgithub/FakeTlsTunnel/master/FtTunnel.sh)
 ```
 
 ![2](https://raw.githubusercontent.com/Ptechgithub/configs/main/media/2.jpg)
