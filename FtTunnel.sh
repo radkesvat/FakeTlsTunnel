@@ -64,7 +64,7 @@ install_ftt() {
 
 # Function to configure arguments based on user's choice single port
 configure_arguments2() {
-    read -p "Which server do you want to use? (Enter '1' for Iran or '2' for Kharej) : " server_choice
+    read -p "Which server do you want to use? (Enter '1' for Iran(internal-server) or '2' for Kharej(external-server) ) : " server_choice
     read -p "Please Enter Port (Please choose the same port on both servers): " port
     read -p "Please Enter SNI (default : google.com): " sni
     sni=${sni:-google.com}
@@ -85,7 +85,7 @@ configure_arguments2() {
 
 # Function to configure arguments based on user's choice Multiport
 configure_arguments() {
-    read -p "Which server do you want to use? (Enter '1' for Iran or '2' for Kharej) : " server_choice
+    read -p "Which server do you want to use? (Enter '1' for Iran(internal-server) or '2' for Kharej(external-server) ) : " server_choice
     read -p "Please Enter SNI (default : splus.ir): " sni
     sni=${sni:-google.com}
 
