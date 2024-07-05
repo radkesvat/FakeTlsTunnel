@@ -64,7 +64,7 @@ install_ftt() {
 
 # Function to configure arguments based on user's choice single port
 configure_arguments2() {
-    read -p "Which server do you want to use? (Enter '1' for Iran or '2' for Kharej) : " server_choice
+    read -p "Which server do you want to use? (Enter '1' for Iran(internal-server) or '2' for Kharej(external-server) ) : " server_choice
     read -p "Please Enter Port (Please choose the same port on both servers): " port
     read -p "Please Enter SNI (default : google.com): " sni
     sni=${sni:-google.com}
@@ -73,7 +73,7 @@ configure_arguments2() {
         read -p "Please Enter Password (Please choose the same password on both servers): " password
         arguments="--server --lport:443 --toip:127.0.0.1 --toport:$port --sni:$sni --password:$password --terminate:24"
     elif [ "$server_choice" == "1" ]; then
-        read -p "Please Enter (Kharej IP) : " server_ip
+        read -p "Please Enter (Kharej IP(extrenal-server)) : " server_ip
         read -p "Please Enter Password (Please choose the same password on both servers): " password
         arguments="--tunnel --lport:$port --toip:$server_ip  --toport:443 --sni:$sni --password:$password --terminate:24"
     else
@@ -85,7 +85,7 @@ configure_arguments2() {
 
 # Function to configure arguments based on user's choice Multiport
 configure_arguments() {
-    read -p "Which server do you want to use? (Enter '1' for Iran or '2' for Kharej) : " server_choice
+    read -p "Which server do you want to use? (Enter '1' for Iran(internal-server) or '2' for Kharej(external-server) ) : " server_choice
     read -p "Please Enter SNI (default : splus.ir): " sni
     sni=${sni:-google.com}
 
@@ -93,7 +93,7 @@ configure_arguments() {
         read -p "Please Enter Password (Please choose the same password on both servers): " password
         arguments="--server --lport:443 --toip:127.0.0.1 --toport:2000 --password:$password --multiport --sni:$sni --terminate:24"
     elif [ "$server_choice" == "1" ]; then
-        read -p "Please Enter (Kharej IP) : " server_ip
+        read -p "Please Enter (Kharej IP(extrenal-server)) : " server_ip
         read -p "Please Enter Password (Please choose the same password on both servers): " password
         arguments="--tunnel --lport:23-65535 --toip:$server_ip --toport:443 --password:$password --sni:$sni --terminate:24"
     else
